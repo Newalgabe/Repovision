@@ -131,17 +131,18 @@ body::before {
 
 .input-form {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 10px;
   max-width: 600px;
   margin: 0 auto;
+  align-items: center;
 }
-@media (min-width: 480px) {
-  .input-form { flex-direction: row; gap: 12px; }
-}
+@media (min-width: 480px) { .input-form { gap: 12px; } }
 
 .url-input-wrapper {
   display: flex;
+  flex: 1 1 180px;
+  min-width: 140px;
   align-items: center;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -150,6 +151,16 @@ body::before {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 @media (min-width: 480px) { .url-input-wrapper { padding: 0 16px; } }
+
+.input-form-compare .url-input-wrapper {
+  flex: 1 1 160px;
+  min-width: 120px;
+}
+
+.btn-primary {
+  flex: 0 1 auto;
+  min-width: 120px;
+}
 
 .url-input-wrapper:focus-within {
   border-color: var(--accent);
@@ -201,10 +212,9 @@ body::before {
   color: white;
   padding: 12px 20px;
   min-height: 44px;
-  width: 100%;
 }
 @media (min-width: 480px) {
-  .btn-primary { padding: 14px 28px; min-width: 120px; width: auto; }
+  .btn-primary { padding: 14px 28px; min-width: 120px; }
 }
 
 .btn-primary:hover {
@@ -843,8 +853,7 @@ body::before {
   font-weight: 500;
 }
 
-.compare-input { margin-top: 0 !important; border-color: var(--accent) !important; }
-.compare-input-visible { display: flex !important; }
+.compare-input { border-color: var(--accent) !important; }
 
 /* ── Deep File Scan ── */
 .deep-file {

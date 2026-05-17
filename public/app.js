@@ -558,10 +558,11 @@
   DOM.expandAllBtn.addEventListener('click', expandAll);
   DOM.collapseAllBtn.addEventListener('click', collapseAll);
 
+  const inputForm = document.querySelector('.input-form');
   DOM.compareToggle.addEventListener('change', () => {
     isCompare = DOM.compareToggle.checked;
     DOM.compareInput.classList.toggle('hidden', !isCompare);
-    DOM.compareInput.classList.toggle('compare-input-visible', isCompare);
+    inputForm.classList.toggle('input-form-compare', isCompare);
     DOM.analyzeBtn.querySelector('.btn-text').textContent = isCompare ? 'Compare' : 'Analyze';
   });
 
