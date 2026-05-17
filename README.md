@@ -21,6 +21,7 @@ Plus: language distribution bars, interactive file tree, key components grid, an
 
 ```bash
 npm install
+cp .env.example .env    # edit .env and add your GITHUB_TOKEN
 npm start
 ```
 
@@ -47,6 +48,7 @@ Or connect your GitHub repo in the Vercel dashboard. The `api/index.js` entry po
 ## Project structure
 
 ```
+├── .env.example      Copy to .env and add your GITHUB_TOKEN
 ├── app.js            Express app (routes, middleware), exported for Vercel
 ├── server.js         Imports app.js and listens (local dev only)
 ├── api/index.js      Re-exports app.js for Vercel serverless
