@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const crypto = require('crypto');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
@@ -6,6 +7,28 @@ function githubHeaders() {
   const headers = { 'User-Agent': 'repovision/1.0' };
   if (GITHUB_TOKEN) headers['Authorization'] = `Bearer ${GITHUB_TOKEN}`;
   return headers;
+}
+
+// ── In-memory cache with TTL ──
+const cacheStore = new Map();
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function cacheGet(key) {
+  const entry = cacheStore.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) {
+    cacheStore.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function cacheSet(key, data) {
+  cacheStore.set(key, { data, ts: Date.now() });
+}
+
+function cacheKey(owner, repo, type) {
+  return `${owner}/${repo}/${type}`;
 }
 
 const FRAMEWORK_SIGNATURES = [
@@ -583,6 +606,124 @@ function buildFlatTree(items) {
   return root;
 }
 
+// ── Deep file scanning ──
+function priorityFiles(items) {
+  const byExt = {};
+  for (const item of items) {
+    if (item.type !== 'blob') continue;
+    const e = ext(item.path);
+    if (!e || e.length > 5) continue;
+    if (!byExt[e]) byExt[e] = [];
+    byExt[e].push(item);
+  }
+
+  const scored = items
+    .filter(i => i.type === 'blob')
+    .map(i => {
+      let score = 0;
+      const ie = ext(i.path);
+      const parts = i.path.split('/');
+      const name = parts[parts.length - 1].toLowerCase();
+
+      if (['index.js','index.ts','app.js','app.ts','main.js','main.ts','server.js','server.ts','cli.js','lib.rs','main.py','app.py','main.go'].includes(name)) score += 20;
+      if (parts.length === 1) score += 5;
+      if (i.path.includes('src/')) score += 3;
+      if (i.path.includes('routes/') || i.path.includes('api/')) score += 4;
+      if (i.path.includes('models/') || i.path.includes('schemas/')) score += 3;
+      if (i.path.includes('middleware/')) score += 3;
+      if (i.path.includes('utils/') || i.path.includes('helpers/')) score += 1;
+      if (i.path.includes('node_modules') || i.path.includes('.git')) score = -100;
+      if (['.md','.json','.yml','.yaml','.lock','.txt','.css','.html','.svg','.png','.jpg'].includes('.' + ie)) score -= 5;
+
+      return { item: i, score, ext: ie };
+    })
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, 12).map(s => s.item);
+}
+
+async function deepScanFiles(owner, repo, items) {
+  const candidates = priorityFiles(items);
+  const results = [];
+
+  for (const candidate of candidates.slice(0, 8)) {
+    const content = await fetchFileContent(owner, repo, candidate.path);
+    if (!content) continue;
+
+    const lines = content.split('\n');
+    const exports = [];
+    const imports = [];
+    const routes = [];
+    const classes = [];
+    const funcs = [];
+
+    for (const line of lines) {
+      const t = line.trim();
+
+      // Exports
+      if (/^(export\s+default\s+|export\s+(const|function|class|interface|type|enum|let|var)\s+)/.test(t)) {
+        const m = t.match(/export\s+(?:default\s+)?(?:const|function|class|interface|type|enum|let|var)\s+(\w+)/);
+        exports.push(m ? m[1] : t.replace(/^export\s+/, '').split(/[({=]/)[0].trim());
+      }
+      if (/^module\.exports\s*=/.test(t)) {
+        exports.push('module.exports');
+      }
+
+      // Imports
+      if (/^(import\s+|const\s+.+\s*=\s*require\()/.test(t)) {
+        const m = t.match(/from\s+['"]([^'"]+)['"]/);
+        if (m) imports.push(m[1]);
+        else {
+          const m2 = t.match(/require\(['"]([^'"]+)['"]\)/);
+          if (m2) imports.push(m2[1]);
+        }
+      }
+
+      // Route definitions (Express/Fastify)
+      const routeMatch = t.match(/\.(get|post|put|delete|patch|all)\s*\(\s*['"]([^'"]+)['"]/);
+      if (routeMatch) routes.push(`${routeMatch[1].toUpperCase()} ${routeMatch[2]}`);
+
+      // Class definitions
+      if (/^class\s+(\w+)/.test(t)) {
+        const m = t.match(/^class\s+(\w+)/);
+        if (m) classes.push(m[1]);
+      }
+
+      // Async functions
+      if (/^(async\s+)?function\s+(\w+)/.test(t)) {
+        const m = t.match(/(?:async\s+)?function\s+(\w+)/);
+        if (m && !['if','for','while'].includes(m[1])) funcs.push(m[1]);
+      }
+    }
+
+    results.push({
+      path: candidate.path,
+      name: candidate.path.split('/').pop(),
+      lineCount: lines.length,
+      exports: exports.slice(0, 6),
+      importCount: imports.length,
+      routes: routes.slice(0, 6),
+      classes: classes.slice(0, 4),
+      topFuncs: funcs.slice(0, 6),
+    });
+  }
+
+  return results;
+}
+
+function cacheResult(owner, repo, data) {
+  cacheSet(cacheKey(owner, repo, 'analysis'), data);
+}
+
+function getCachedResult(owner, repo) {
+  return cacheGet(cacheKey(owner, repo, 'analysis'));
+}
+
+function clearCache() {
+  cacheStore.clear();
+}
+
 module.exports = {
   fetchRepoTree, fetchFileContent, fetchRepoInfo,
   detectProjectType, readPackageDeps, detectFrameworks,
@@ -590,4 +731,6 @@ module.exports = {
   categorizeComponents, buildFlatTree, generateNarrative,
   detectArchPattern, detectEntryPoints, scanEntryContent,
   fetchReadme, parseReadme, detectProjectPurpose, classifyFile,
+  deepScanFiles,
+  cacheResult, getCachedResult, clearCache,
 };

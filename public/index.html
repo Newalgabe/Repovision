@@ -31,16 +31,32 @@
           </div>
           <h2 class="input-title">Analyze any GitHub repo</h2>
           <p class="input-subtitle">Paste a repository URL to visualize its architecture and understand every component</p>
+
+          <div class="compare-toggle-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="compare-toggle">
+              <span class="toggle-track"><span class="toggle-knob"></span></span>
+              <span class="toggle-text">Compare two repos</span>
+            </label>
+          </div>
+
           <div class="input-form">
             <div class="url-input-wrapper">
               <span class="url-prefix">https://github.com/</span>
               <input type="text" id="repo-url" class="url-input" placeholder="owner/repo" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="url-input-wrapper compare-input hidden" id="compare-input-wrapper">
+              <span class="url-prefix">https://github.com/</span>
+              <input type="text" id="repo-url-2" class="url-input" placeholder="owner/repo" autocomplete="off" spellcheck="false">
             </div>
             <button id="analyze-btn" class="btn btn-primary">
               <span class="btn-text">Analyze</span>
               <span class="btn-spinner hidden"></span>
             </button>
           </div>
+
+          <div class="history" id="history-container"></div>
+
           <div class="examples">
             <span class="examples-label">Try:</span>
             <button class="example-btn" data-repo="vercel/next.js">vercel/next.js</button>
@@ -54,24 +70,21 @@
 
       <!-- Results Section -->
       <section id="results-section" class="section results-section hidden">
-        <!-- Loading -->
         <div id="loading" class="loading hidden">
-          <div class="loading-spinner">
-            <div class="spinner-ring"></div>
-          </div>
+          <div class="loading-spinner"><div class="spinner-ring"></div></div>
           <div class="loading-text">
             <span id="loading-message">Cloning repository structure...</span>
-            <span class="loading-dots"></span>
           </div>
-          <div class="loading-bar">
-            <div class="loading-bar-fill" id="loading-bar-fill"></div>
-          </div>
+          <div class="loading-bar"><div class="loading-bar-fill" id="loading-bar-fill"></div></div>
         </div>
 
-        <!-- Results -->
         <div id="results" class="results hidden">
-          <!-- Header -->
-          <div class="repo-header" id="repo-header">
+          <div class="results-toolbar">
+            <button id="export-md-btn" class="btn btn-sm" title="Copy analysis as Markdown">Copy Markdown</button>
+            <button id="share-url-btn" class="btn btn-sm" title="Copy shareable URL">Share</button>
+          </div>
+
+          <div id="repo-header" class="repo-header">
             <div class="repo-header-top">
               <div class="repo-info">
                 <a id="repo-link" class="repo-name" target="_blank" rel="noopener"></a>
@@ -79,41 +92,28 @@
                 <div class="repo-meta" id="repo-meta"></div>
               </div>
               <div class="repo-stats">
-                <div class="stat">
-                  <span class="stat-value" id="stat-files">0</span>
-                  <span class="stat-label">files</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-value" id="stat-dirs">0</span>
-                  <span class="stat-label">directories</span>
-                </div>
-                <div class="stat">
-                  <span class="stat-value" id="stat-stars">0</span>
-                  <span class="stat-label">stars</span>
-                </div>
+                <div class="stat"><span class="stat-value" id="stat-files">0</span><span class="stat-label">files</span></div>
+                <div class="stat"><span class="stat-value" id="stat-dirs">0</span><span class="stat-label">dirs</span></div>
+                <div class="stat"><span class="stat-value" id="stat-stars">0</span><span class="stat-label">stars</span></div>
               </div>
             </div>
             <div class="tech-badges" id="tech-badges"></div>
           </div>
 
-          <!-- Narrative (rich text analysis) -->
           <div id="narrative-container"></div>
 
+          <!-- Deep Scan -->
+          <div id="deep-scan-container" class="hidden"></div>
+
           <!-- Languages -->
-          <div class="card languages-card">
-            <h3 class="card-title">
-              <span class="card-icon">&#9670;</span>
-              Language Breakdown
-            </h3>
+          <div class="card">
+            <h3 class="card-title"><span class="card-icon">&#9670;</span> Language Breakdown</h3>
             <div id="lang-bars" class="lang-bars"></div>
           </div>
 
           <!-- File Tree -->
-          <div class="card tree-card">
-            <h3 class="card-title">
-              <span class="card-icon">&#9670;</span>
-              File Tree Explorer
-            </h3>
+          <div class="card">
+            <h3 class="card-title"><span class="card-icon">&#9670;</span> File Tree Explorer</h3>
             <div class="tree-controls">
               <button id="expand-all-btn" class="btn btn-sm">Expand all</button>
               <button id="collapse-all-btn" class="btn btn-sm">Collapse all</button>
@@ -122,19 +122,18 @@
           </div>
 
           <!-- Components -->
-          <div class="card components-card">
-            <h3 class="card-title">
-              <span class="card-icon">&#9670;</span>
-              Key Components
-            </h3>
+          <div class="card">
+            <h3 class="card-title"><span class="card-icon">&#9670;</span> Key Components</h3>
             <div id="components-grid" class="components-grid"></div>
           </div>
 
-          <!-- New analysis -->
           <div class="new-analysis">
             <button id="new-analysis-btn" class="btn btn-secondary">Analyze another repo</button>
           </div>
         </div>
+
+        <!-- Compare Results -->
+        <div id="compare-results" class="results hidden"></div>
       </section>
     </main>
 
@@ -142,7 +141,6 @@
       <p>repovision &mdash; built with <span class="heart">&hearts;</span></p>
     </footer>
   </div>
-
   <script src="/app.js"></script>
 </body>
 </html>
