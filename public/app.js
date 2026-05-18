@@ -201,6 +201,36 @@
     }
   }
 
+  // ── Theme Toggle ──
+  const themeToggle = document.getElementById('theme-toggle');
+  function setTheme(light) {
+    document.documentElement.classList.toggle('light-theme', light);
+    localStorage.setItem('repovision_theme', light ? 'light' : 'dark');
+  }
+  function loadTheme() {
+    const saved = localStorage.getItem('repovision_theme');
+    if (saved === 'light') document.documentElement.classList.add('light-theme');
+  }
+  themeToggle.addEventListener('click', () => {
+    const isLight = document.documentElement.classList.toggle('light-theme');
+    localStorage.setItem('repovision_theme', isLight ? 'light' : 'dark');
+  });
+  loadTheme();
+
+  // ── Collapsible Cards ──
+  function makeCollapsibleCard(title, icon) {
+    const card = document.createElement('div'); card.className = 'card';
+    const header = document.createElement('div'); header.className = 'card-header';
+    const titleEl = document.createElement('h3'); titleEl.className = 'card-title';
+    titleEl.innerHTML = `<span class="card-icon">${icon || '&#9670;'}</span> ${title}`;
+    const chevron = document.createElement('span'); chevron.className = 'card-chevron'; chevron.textContent = '\u25BC';
+    header.appendChild(titleEl); header.appendChild(chevron);
+    const body = document.createElement('div'); body.className = 'card-body';
+    header.addEventListener('click', () => card.classList.toggle('collapsed'));
+    card.appendChild(header); card.appendChild(body);
+    return { card, body };
+  }
+
   // ── Render Results ──
   function renderResults(data) {
     renderRepoHeader(data);
@@ -236,25 +266,20 @@
   function renderNarrative(data) {
     DOM.narrativeContainer.innerHTML = '';
     if (!data.narrative || !data.narrative.length) {
-      const card = makeCard('Architecture Overview', data.summary || 'No summary available.');
+      const { card, body } = makeCollapsibleCard('Architecture Overview', '&#9670;');
+      body.innerHTML = (data.summary || 'No summary available.').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       DOM.narrativeContainer.appendChild(card);
       return;
     }
     for (const sec of data.narrative) {
-      const card = document.createElement('div');
-      card.className = 'card narrative-card';
-      const h3 = document.createElement('h3');
-      h3.className = 'card-title';
-      h3.innerHTML = `<span class="card-icon">&#9670;</span> ${sec.icon} ${sec.heading}`;
-      card.appendChild(h3);
-      const content = document.createElement('div');
-      content.className = 'summary-content';
+      const { card, body } = makeCollapsibleCard(`${sec.icon} ${sec.heading}`, '&#9670;');
+      body.className = 'card-body summary-content';
       const lines = sec.content.split('\n');
       let inList = false, listEl = null;
       for (const line of lines) {
         if (!line.trim() && inList) { inList = false; listEl = null; continue; }
         if (line.trim().startsWith('- ')) {
-          if (!inList) { listEl = document.createElement('ul'); listEl.className = 'narrative-list'; content.appendChild(listEl); inList = true; }
+          if (!inList) { listEl = document.createElement('ul'); listEl.className = 'narrative-list'; body.appendChild(listEl); inList = true; }
           const li = document.createElement('li');
           li.innerHTML = line.trim().slice(2).replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/`(.*?)`/g, '<code>$1</code>');
           listEl.appendChild(li);
@@ -262,21 +287,16 @@
           inList = false; listEl = null;
           const p = document.createElement('p');
           p.innerHTML = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/`(.*?)`/g, '<code>$1</code>');
-          if (p.textContent.trim()) content.appendChild(p);
+          if (p.textContent.trim()) body.appendChild(p);
         }
       }
-      card.appendChild(content);
       DOM.narrativeContainer.appendChild(card);
     }
   }
 
   function makeCard(title, text) {
-    const card = document.createElement('div'); card.className = 'card';
-    const h3 = document.createElement('h3'); h3.className = 'card-title';
-    h3.innerHTML = `<span class="card-icon">&#9670;</span> ${title}`; card.appendChild(h3);
-    const div = document.createElement('div'); div.className = 'summary-content';
-    div.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    card.appendChild(div);
+    const { card, body } = makeCollapsibleCard(title, '&#9670;');
+    body.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     return card;
   }
 
@@ -284,10 +304,7 @@
     DOM.deepScanContainer.innerHTML = '';
     if (!data.deepScan || data.deepScan.length === 0) { DOM.deepScanContainer.classList.add('hidden'); return; }
     DOM.deepScanContainer.classList.remove('hidden');
-    const card = document.createElement('div'); card.className = 'card';
-    const h3 = document.createElement('h3'); h3.className = 'card-title';
-    h3.innerHTML = '<span class="card-icon">&#9670;</span> Deep File Scan';
-    card.appendChild(h3);
+    const { card, body } = makeCollapsibleCard('Deep File Scan', '&#9670;');
     for (const file of data.deepScan) {
       const block = document.createElement('div'); block.className = 'deep-file';
       const header = document.createElement('div'); header.className = 'deep-file-header';
@@ -318,7 +335,7 @@
         row.innerHTML = `<span class="deep-label">Imports:</span> ${file.importCount} dependencies`;
         block.appendChild(row);
       }
-      card.appendChild(block);
+      body.appendChild(block);
     }
     DOM.deepScanContainer.appendChild(card);
   }
@@ -433,9 +450,8 @@
     DOM.compareResults.appendChild(grid);
 
     // Diff stats
-    const diff = document.createElement('div'); diff.className = 'card';
-    diff.innerHTML = `<h3 class="card-title"><span class="card-icon">&#9670;</span> At a glance</h3>
-      <div class="compare-diff">
+    const { card: diff, body: diffBody } = makeCollapsibleCard('At a glance', '&#9670;');
+    diffBody.innerHTML = `<div class="compare-diff">
         <div class="diff-row"><span class="diff-label">Project type</span><span class="diff-val">${r1.projectType}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.projectType}</span></div>
         <div class="diff-row"><span class="diff-label">Total files</span><span class="diff-val">${r1.totalFiles.toLocaleString()}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.totalFiles.toLocaleString()}</span></div>
         <div class="diff-row"><span class="diff-label">Stars</span><span class="diff-val">${(r1.repo.stars || 0).toLocaleString()}</span><span class="diff-vs">vs</span><span class="diff-val">${(r2.repo.stars || 0).toLocaleString()}</span></div>
@@ -509,7 +525,7 @@
   function copyShareUrl() {
     const url = currentData?.repo?.html_url;
     if (!url) return;
-    const shareUrl = `${window.location.origin}?repo=${encodeURIComponent(url)}`;
+    const shareUrl = `https://repovision-alpha.vercel.app?repo=${encodeURIComponent(url)}`;
     try {
       navigator.clipboard.writeText(shareUrl);
       DOM.shareUrlBtn.textContent = 'Copied!';

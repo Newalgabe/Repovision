@@ -2,7 +2,9 @@
 
 See inside any GitHub repo. Get a full architectural breakdown with plain-English explanations — no sign-up, no config.
 
-![screenshot](https://img.shields.io/badge/status-working-brightgreen)
+**Try it:** [repovision-alpha.vercel.app](https://repovision-alpha.vercel.app)
+
+![status](https://img.shields.io/badge/status-working-brightgreen)
 
 ## How it works
 
@@ -15,7 +17,18 @@ See inside any GitHub repo. Get a full architectural breakdown with plain-Englis
    - **What Does It Use?** — every dependency grouped by purpose (Testing, Auth, Database, CLI, etc.) with descriptions of what each library does
    - **How Is It Organized?** — architecture pattern, top-level directories with file counts, entry points, key component breakdown
 
-Plus: language distribution bars, interactive file tree, key components grid, and repo stats.
+Plus: language distribution bars, interactive file tree, key components grid, deep file scan, and repo stats.
+
+## Features
+
+- **Compare mode** — analyze two repos side by side with a diff table
+- **Theme toggle** — switch between dark and light mode (persisted in localStorage)
+- **Collapsible cards** — expand/collapse each section of the analysis
+- **Deep file scan** — reads the most important files and extracts exports, routes, classes, and functions
+- **History** — last 8 repos shown as clickable pills below the input
+- **Export Markdown** — copy the full analysis as Markdown
+- **Share via URL** — copy a `?repo=` link that auto-runs on page load
+- **Rate-limit aware** — 5,000 req/hr with a token; descriptive error when hitting the 60 req/hr limit without one
 
 ## Quick start
 
@@ -57,7 +70,7 @@ Or connect your GitHub repo in the Vercel dashboard. The `api/index.js` entry po
 │                     architecture pattern detector, narrative generator
 └── public/
     ├── index.html    Single-page app
-    ├── styles.css    Dark-theme UI
+    ├── styles.css    Dark/light theme UI (CSS custom properties)
     └── app.js        Frontend logic, interactive tree viewer
 ```
 
@@ -70,9 +83,10 @@ The analyzer (`analyzer.js`) uses rule-based inference — no AI API calls. It:
 - Parses `README.md` to extract descriptions and feature lists
 - Matches directory names against known architecture patterns (MVC, Component-Based, Monorepo, Serverless, etc.)
 - Maps 50+ well-known packages to categories with plain-English descriptions
+- Scores all files by importance and deep-scans the top 8 for exports/routes/classes/functions
 - Generates a structured narrative from all of this data
 
-The frontend renders the result as expandable cards with styled lists, code highlights, and an interactive file explorer.
+The frontend renders the result as collapsible cards with styled lists, code highlights, an interactive file explorer, and a light/dark theme toggle.
 
 ## Stack
 
