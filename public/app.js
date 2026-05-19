@@ -52,6 +52,8 @@
     aiNarrativeContainer: document.getElementById('ai-narrative-container'),
     aiNarrativeHeader: document.getElementById('ai-narrative-header'),
     aiNarrativeBody: document.getElementById('ai-narrative-body'),
+    printBtn: document.getElementById('print-btn'),
+    rateLimitInfo: document.getElementById('rate-limit-info'),
   };
 
   let currentData = null;
@@ -145,7 +147,7 @@
         <div class="trending-card-desc">${r.description || ''}</div>
         <div class="trending-card-meta">
           <span>${r.language || ''}</span>
-          <span>â˜… ${(r.stars || 0).toLocaleString()}</span>
+          <span>★ ${(r.stars || 0).toLocaleString()}</span>
         </div>`;
       card.addEventListener('click', () => {
         fillRepoUrl(`https://github.com/${r.full_name}`);
@@ -389,6 +391,21 @@
     return { card, body };
   }
 
+  function renderRateLimit(data) {
+    const rl = data._rateLimit;
+    if (rl && rl.remaining !== null && rl.limit !== null) {
+      DOM.rateLimitInfo.textContent = `GitHub API: ${rl.remaining} / ${rl.limit} requests remaining`;
+      DOM.rateLimitInfo.classList.remove('hidden');
+    } else {
+      DOM.rateLimitInfo.classList.add('hidden');
+    }
+  }
+
+  // â”€â”€ Print â”€â”€
+  DOM.printBtn.addEventListener('click', () => {
+    window.print();
+  });
+
   // â”€â”€ Render Results â”€â”€
   function renderResults(data) {
     renderRepoHeader(data);
@@ -399,8 +416,10 @@
     renderLanguages(data);
     renderFileTree(data.fileTree);
     renderComponents(data);
+    renderRateLimit(data);
     DOM.exportMdBtn.classList.remove('hidden');
     DOM.shareUrlBtn.classList.remove('hidden');
+    DOM.printBtn.classList.remove('hidden');
   }
 
   function renderAiNarrative(data) {
@@ -488,7 +507,7 @@
     for (const file of data.deepScan) {
       const block = document.createElement('div'); block.className = 'deep-file';
       const header = document.createElement('div'); header.className = 'deep-file-header';
-      header.innerHTML = `<span class="deep-file-icon">ðŸ“„</span> <code>${file.path}</code> <span class="deep-file-meta">${file.lineCount} lines</span>`;
+      header.innerHTML = `<code>${file.path}</code> <span class="deep-file-meta">${file.lineCount} lines</span>`;
       block.appendChild(header);
       if (file.exports && file.exports.length) {
         const row = document.createElement('div'); row.className = 'deep-file-row';
@@ -866,7 +885,7 @@
         <div class="diff-row"><span class="diff-label">Project type</span><span class="diff-val">${r1.projectType}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.projectType}</span></div>
         <div class="diff-row"><span class="diff-label">Total files</span><span class="diff-val">${r1.totalFiles.toLocaleString()}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.totalFiles.toLocaleString()}</span></div>
         <div class="diff-row"><span class="diff-label">Stars</span><span class="diff-val">${(r1.repo.stars || 0).toLocaleString()}</span><span class="diff-vs">vs</span><span class="diff-val">${(r2.repo.stars || 0).toLocaleString()}</span></div>
-        <div class="diff-row"><span class="diff-label">Primary language</span><span class="diff-val">${r1.repo.language || 'â€”'}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.repo.language || 'â€”'}</span></div>
+        <div class="diff-row"><span class="diff-label">Primary language</span><span class="diff-val">${r1.repo.language || '—'}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.repo.language || '—'}</span></div>
       </div>`;
     DOM.compareResults.appendChild(diff);
     const act = document.createElement('div'); act.className = 'new-analysis';
@@ -876,12 +895,13 @@
       DOM.resultsSection.classList.add('hidden');
       DOM.inputSection.scrollIntoView({ behavior: 'smooth' });
     });
+    renderRateLimit(data);
   }
 
   function compareCol(r, label) {
     const fw = r.frameworks.map(f => f.name).join(', ') || 'none detected';
-    const arch = r.archPatterns && r.archPatterns.length ? r.archPatterns[0].name : 'â€”';
-    const langs = r.languages ? r.languages.slice(0, 4).map(l => `${LANGUAGE_NAMES[l.ext] || l.ext} (${l.count})`).join('<br>') : 'â€”';
+    const arch = r.archPatterns && r.archPatterns.length ? r.archPatterns[0].name : '—';
+    const langs = r.languages ? r.languages.slice(0, 4).map(l => `${LANGUAGE_NAMES[l.ext] || l.ext} (${l.count})`).join('<br>') : '—';
     return `
       <div class="compare-repo-label">Repo ${label}</div>
       <div class="compare-repo-name">${r.repo.full_name}</div>
@@ -899,7 +919,7 @@
     if (r.description) md += `${r.description}\n\n`;
     md += `**Stars:** ${(r.stars || 0).toLocaleString()}  \n`;
     md += `**Files:** ${data.totalFiles.toLocaleString()}  \n`;
-    md += `**Language:** ${r.language || 'â€”'}  \n\n`;
+    md += `**Language:** ${r.language || '—'}  \n\n`;
     if (data.narrative) {
       for (const sec of data.narrative) {
         md += `## ${sec.heading}\n\n`;

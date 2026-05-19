@@ -12,6 +12,7 @@ const {
   fetchReadme, parseReadme, detectProjectPurpose,
   deepScanFiles, setToken,
   cacheResult, getCachedResult, clearCache,
+  getRateLimit,
 } = require('./analyzer');
 
 const app = express();
@@ -36,7 +37,7 @@ async function analyzeRepo(owner, repo, token) {
   const cached = getCachedResult(owner, repo);
   if (cached) {
     console.log(`Cache hit for ${owner}/${repo}`);
-    return cached;
+    return { ...cached, _rateLimit: getRateLimit() };
   }
 
   console.log(`Analyzing ${owner}/${repo}...`);
@@ -113,6 +114,7 @@ async function analyzeRepo(owner, repo, token) {
   };
 
   cacheResult(owner, repo, result);
+  result._rateLimit = getRateLimit();
   console.log(`Done analyzing ${owner}/${repo}${cached ? ' (cached)' : ''}`);
   return result;
 }
@@ -239,7 +241,7 @@ app.post('/api/compare', async (req, res) => {
       analyzeRepo(o2, r2, token),
     ]);
 
-    res.json({ repo1: result1, repo2: result2 });
+    res.json({ repo1: result1, repo2: result2, _rateLimit: getRateLimit() });
   } catch (err) {
     console.error('Compare error:', err.message);
     res.status(500).json({ error: err.message });
@@ -332,6 +334,59 @@ app.get('/api/trending', async (req, res) => {
       ],
       fallback: true,
     });
+  }
+});
+
+// ── Badge endpoint ──
+const BADGE_CACHE = { data: null, ts: 0, key: '' };
+const BADGE_TTL = 10 * 60 * 1000;
+
+app.get('/api/badge', async (req, res) => {
+  const repo = req.query.repo;
+  if (!repo) return res.status(400).send('Missing ?repo=owner/repo');
+  if (BADGE_CACHE.key === repo && Date.now() - BADGE_CACHE.ts < BADGE_TTL && BADGE_CACHE.data) {
+    res.setHeader('Content-Type', 'image/svg+xml;charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    return res.send(BADGE_CACHE.data);
+  }
+  try {
+    const [owner, repoName] = repo.split('/');
+    if (!owner || !repoName) return res.status(400).send('Invalid repo format. Use owner/repo');
+    const token = req.session?.githubToken || process.env.GITHUB_TOKEN;
+    const headers = { 'User-Agent': 'repovision/1.0', Accept: 'application/vnd.github.v3+json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const info = await fetch(`https://api.github.com/repos/${owner}/${repoName}`, { headers }).then(r => { if (!r.ok) throw new Error('Repo not found'); return r.json(); });
+
+    const label = 'repovision';
+    const message = `${info.stargazers_count || 0}★ ${info.language || ''} ${info.default_branch || ''}`.trim();
+    const labelWidth = label.length * 7 + 16;
+    const msgWidth = Math.max(message.length * 7 + 16, 40);
+    const totalWidth = labelWidth + msgWidth;
+    const height = 20;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}">
+  <linearGradient id="s" x2="0" y2="100%">
+    <stop offset="0" stop-color="#f9f9f9" stop-opacity=".13"/>
+    <stop offset="1" stop-opacity=".1"/>
+  </linearGradient>
+  <clipPath id="r"><rect width="${totalWidth}" height="${height}" rx="3" fill="#fff"/></clipPath>
+  <g clip-path="url(#r)">
+    <rect width="${labelWidth}" height="${height}" fill="#555"/>
+    <rect x="${labelWidth}" width="${msgWidth}" height="${height}" fill="#6c5ce7"/>
+    <rect width="${totalWidth}" height="${height}" fill="url(#s)"/>
+  </g>
+  <g fill="#fff" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
+    <text x="${labelWidth / 2}" y="14" text-anchor="middle">${label}</text>
+    <text x="${labelWidth + msgWidth / 2}" y="14" text-anchor="middle">${message}</text>
+  </g>
+</svg>`;
+    BADGE_CACHE.data = svg;
+    BADGE_CACHE.ts = Date.now();
+    BADGE_CACHE.key = repo;
+    res.setHeader('Content-Type', 'image/svg+xml;charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=600');
+    res.send(svg);
+  } catch (err) {
+    res.status(404).send('<!-- no such repo -->');
   }
 });
 

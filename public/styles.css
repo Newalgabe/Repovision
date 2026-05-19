@@ -826,6 +826,8 @@ body::before {
   gap: 8px;
   justify-content: flex-end;
   margin-bottom: 12px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
 /* ── History ── */
@@ -1130,6 +1132,13 @@ body::before {
 
 .heart { color: var(--orange); }
 
+.rate-limit-info {
+  margin-top: 6px;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; }
 @media (min-width: 640px) { ::-webkit-scrollbar { width: 8px; } }
@@ -1403,4 +1412,34 @@ body::before {
   border-radius: 3px;
   margin-left: 6px;
   vertical-align: middle;
+}
+
+/* ── Print Styles ── */
+@media print {
+  body { background: #fff; color: #000; }
+  .header { padding-top: 10px; }
+  .tagline { display: none; }
+  .header-buttons { display: none !important; }
+  #input-section, #trending-container, .examples, .history, .compare-toggle-row,
+  .results-toolbar, #new-analysis-btn, .btn-auth, .auth-avatar,
+  .footer, .modal, #shortcuts-modal, .dep-graph-container,
+  .card-chevron, .card-header { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .results-toolbar, #print-btn, #export-md-btn, #share-url-btn, #search-wrapper { display: none !important; }
+  .card { break-inside: avoid; border: 1px solid #ddd; box-shadow: none; page-break-inside: avoid; }
+  .card-body { display: block !important; }
+  .card.collapsed .card-body { display: block !important; }
+  .card.collapsed .card-chevron { display: none; }
+  .lang-bar-fill { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .tech-badge { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .repo-header { break-inside: avoid; page-break-inside: avoid; }
+  .compare-grid { break-inside: avoid; page-break-inside: avoid; }
+  .deep-file { break-inside: avoid; page-break-inside: avoid; }
+  .loading, #loading { display: none !important; }
+  .component-card { break-inside: avoid; page-break-inside: avoid; }
+  .narrative-list li::before { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #app { max-width: 100%; }
+  .main { max-width: 100%; padding: 0 8px; }
+  .ai-narrative-card { border-left: 3px solid #6c5ce7 !important; }
+  .ai-badge { background: #6c5ce7 !important; color: #fff !important; }
+  .rate-limit-info { display: none !important; }
 }

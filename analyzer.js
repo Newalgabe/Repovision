@@ -12,6 +12,11 @@ function githubHeaders(token) {
   return headers;
 }
 
+// ── Rate limit tracking ──
+let lastRateLimit = { remaining: null, limit: null, reset: null };
+function getRateLimit() { return { ...lastRateLimit }; }
+function resetRateLimit() { lastRateLimit = { remaining: null, limit: null, reset: null }; }
+
 // ── In-memory cache with TTL ──
 const cacheStore = new Map();
 const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
@@ -148,6 +153,12 @@ function classifyFile(name, path) {
 
 async function ghFetch(url, token) {
   const res = await fetch(url, { headers: githubHeaders(token) });
+  const remaining = res.headers.get('x-ratelimit-remaining');
+  const limit = res.headers.get('x-ratelimit-limit');
+  const reset = res.headers.get('x-ratelimit-reset');
+  if (remaining !== null) lastRateLimit.remaining = parseInt(remaining);
+  if (limit !== null) lastRateLimit.limit = parseInt(limit);
+  if (reset !== null) lastRateLimit.reset = parseInt(reset);
   if (!res.ok) {
     let detail = '';
     try {
@@ -757,4 +768,5 @@ module.exports = {
   fetchReadme, parseReadme, detectProjectPurpose, classifyFile,
   deepScanFiles, setToken,
   cacheResult, getCachedResult, clearCache,
+  getRateLimit, resetRateLimit,
 };
