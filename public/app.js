@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   const DOM = {
     inputSection: document.getElementById('input-section'),
     resultsSection: document.getElementById('results-section'),
@@ -70,7 +70,7 @@
     r: 'R', scala: 'Scala', toml: 'TOML', xml: 'XML',
   };
 
-  // ── Theme Toggle ──
+  // â”€â”€ Theme Toggle â”€â”€
   const themeToggle = document.getElementById('theme-toggle');
   function loadTheme() {
     const saved = localStorage.getItem('repovision_theme');
@@ -82,7 +82,7 @@
   });
   loadTheme();
 
-  // ── History ──
+  // â”€â”€ History â”€â”€
   function getHistory() {
     try { return JSON.parse(localStorage.getItem('repovision_history') || '[]'); }
     catch { return []; }
@@ -111,7 +111,7 @@
     }
   }
 
-  // ── Trending ──
+  // â”€â”€ Trending â”€â”€
   let trendingErrorCount = 0;
   async function loadTrending() {
     DOM.trendingContainer.classList.remove('hidden');
@@ -135,7 +135,7 @@
         <div class="trending-card-desc">${r.description || ''}</div>
         <div class="trending-card-meta">
           <span>${r.language || ''}</span>
-          <span>★ ${(r.stars || 0).toLocaleString()}</span>
+          <span>â˜… ${(r.stars || 0).toLocaleString()}</span>
         </div>`;
       card.addEventListener('click', () => {
         fillRepoUrl(`https://github.com/${r.full_name}`);
@@ -146,7 +146,7 @@
   DOM.refreshTrending.addEventListener('click', loadTrending);
   loadTrending();
 
-  // ── OAuth ──
+  // â”€â”€ OAuth â”€â”€
   async function checkAuth() {
     try {
       const res = await fetch('/api/auth/me');
@@ -167,7 +167,7 @@
   DOM.authBtn.addEventListener('click', () => { window.location.href = '/api/auth/github'; });
   checkAuth();
 
-  // ── Keyboard Shortcuts ──
+  // â”€â”€ Keyboard Shortcuts â”€â”€
   function toggleShortcuts(show) {
     try {
       if (show === undefined) {
@@ -198,7 +198,7 @@
     }
   });
 
-  // ── URL handling ──
+  // â”€â”€ URL handling â”€â”€
   function extractUrl(input) {
     input = input.trim();
     if (input.includes('github.com')) {
@@ -240,7 +240,7 @@
   }
   function hideLoading() { DOM.loading.classList.add('hidden'); }
 
-  // ── Analyze ──
+  // â”€â”€ Analyze â”€â”€
   async function analyze(url) {
     hideError();
     showLoading();
@@ -321,7 +321,7 @@
     }
   }
 
-  // ── Collapsible Cards ──
+  // â”€â”€ Collapsible Cards â”€â”€
   function makeCollapsibleCard(title, icon) {
     const card = document.createElement('div'); card.className = 'card';
     const header = document.createElement('div'); header.className = 'card-header';
@@ -335,7 +335,7 @@
     return { card, body };
   }
 
-  // ── Render Results ──
+  // â”€â”€ Render Results â”€â”€
   function renderResults(data) {
     renderRepoHeader(data);
     renderNarrative(data);
@@ -413,7 +413,7 @@
     for (const file of data.deepScan) {
       const block = document.createElement('div'); block.className = 'deep-file';
       const header = document.createElement('div'); header.className = 'deep-file-header';
-      header.innerHTML = `<span class="deep-file-icon">📄</span> <code>${file.path}</code> <span class="deep-file-meta">${file.lineCount} lines</span>`;
+      header.innerHTML = `<span class="deep-file-icon">ðŸ“„</span> <code>${file.path}</code> <span class="deep-file-meta">${file.lineCount} lines</span>`;
       block.appendChild(header);
       if (file.exports && file.exports.length) {
         const row = document.createElement('div'); row.className = 'deep-file-row';
@@ -445,7 +445,7 @@
     DOM.deepScanContainer.appendChild(card);
   }
 
-  // ── Dependency Graph ──
+  // â”€â”€ Dependency Graph â”€â”€
   function renderDepGraph(data) {
     const canvas = DOM.depGraphCanvas;
     if (!data.depGraph || !data.depGraph.nodes || data.depGraph.nodes.length < 2) {
@@ -454,7 +454,6 @@
     }
     DOM.depGraphContainer.classList.remove('hidden');
 
-    // Collapsible
     const header = DOM.depGraphHeader;
     const cardBody = header.nextElementSibling;
     let collapsed = false;
@@ -474,57 +473,66 @@
     canvas.style.height = H + 'px';
     ctx.scale(2, 2);
 
-    const nodes = data.depGraph.nodes.slice(0, 30);
-    const edges = data.depGraph.edges.filter(e => {
-      return nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target);
-    }).slice(0, 60);
+    const maxNodes = 20;
+    const nodes = data.depGraph.nodes.slice(0, maxNodes);
+    const edges = data.depGraph.edges.filter(e =>
+      nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target)
+    ).slice(0, 40);
     const nodeMap = {};
 
-    // Position nodes randomly
-    for (const n of nodes) {
-      n.x = 50 + Math.random() * (W - 100);
-      n.y = 50 + Math.random() * (H - 100);
-      n.vx = 0; n.vy = 0;
-      n.radius = n.group === 'local' ? 10 : 7;
-      nodeMap[n.id] = n;
+    const cx = W / 2, cy = H / 2;
+    const radius = Math.min(W, H) * 0.35;
+    for (let i = 0; i < nodes.length; i++) {
+      const angle = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+      nodes[i].x = cx + Math.cos(angle) * radius;
+      nodes[i].y = cy + Math.sin(angle) * radius;
+      nodes[i].vx = 0; nodes[i].vy = 0;
+      nodes[i].radius = nodes[i].group === 'local' ? 8 : 6;
+      nodeMap[nodes[i].id] = nodes[i];
     }
 
     let animId = null;
     let dragNode = null;
 
+    const repulsion = 30000;
+    const minDist = 80;
+    const idealEdge = 130;
+    const gravity = 0.003;
+    const damping = 0.8;
+    const margin = 35;
+
     function simulate() {
-      // Repulsion
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
           const a = nodes[i], b = nodes[j];
           let dx = a.x - b.x, dy = a.y - b.y;
           let dist = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = 5000 / (dist * dist);
-          dx /= dist; dy /= dist;
-          a.vx += dx * force; a.vy += dy * force;
-          b.vx -= dx * force; b.vy -= dy * force;
+          if (dist < minDist) {
+            const force = repulsion / (dist * dist + 1);
+            dx /= dist; dy /= dist;
+            a.vx += dx * force; a.vy += dy * force;
+            b.vx -= dx * force; b.vy -= dy * force;
+          }
         }
       }
-      // Attraction along edges
       for (const e of edges) {
         const s = nodeMap[e.source], t = nodeMap[e.target];
         if (!s || !t) continue;
         const dx = t.x - s.x, dy = t.y - s.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const force = dist / 200;
+        const force = (dist - idealEdge) * 0.008;
         s.vx += (dx / dist) * force;
         s.vy += (dy / dist) * force;
         t.vx -= (dx / dist) * force;
         t.vy -= (dy / dist) * force;
       }
-      // Center gravity
       for (const n of nodes) {
-        n.vx += (W / 2 - n.x) * 0.001;
-        n.vy += (H / 2 - n.y) * 0.001;
-        n.vx *= 0.95; n.vy *= 0.95;
+        n.vx += (cx - n.x) * gravity;
+        n.vy += (cy - n.y) * gravity;
+        n.vx *= damping; n.vy *= damping;
         n.x += n.vx; n.y += n.vy;
-        n.x = Math.max(20, Math.min(W - 20, n.x));
-        n.y = Math.max(20, Math.min(H - 20, n.y));
+        n.x = Math.max(margin, Math.min(W - margin, n.x));
+        n.y = Math.max(margin, Math.min(H - margin, n.y));
       }
       draw();
       if (!dragNode) animId = requestAnimationFrame(simulate);
@@ -533,7 +541,6 @@
     function draw() {
       ctx.clearRect(0, 0, W, H);
 
-      // Edges
       for (const e of edges) {
         const s = nodeMap[e.source], t = nodeMap[e.target];
         if (!s || !t) continue;
@@ -541,28 +548,60 @@
         ctx.moveTo(s.x, s.y);
         ctx.lineTo(t.x, t.y);
         ctx.strokeStyle = e.type === 'local' ? 'rgba(108, 92, 231, 0.25)' : 'rgba(152, 152, 176, 0.15)';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = e.type === 'local' ? 1.5 : 1;
         ctx.stroke();
       }
 
-      // Nodes
       for (const n of nodes) {
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
         ctx.fillStyle = n.group === 'local' ? '#00cec9' : '#74b9ff';
-        if (n === dragNode) ctx.fillStyle = '#6c5ce7';
-        ctx.fill();
         if (n === dragNode) {
+          ctx.fillStyle = '#6c5ce7';
+          ctx.shadowColor = 'rgba(108, 92, 231, 0.5)';
+          ctx.shadowBlur = 12;
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        if (n === dragNode) {
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, n.radius + 3, 0, Math.PI * 2);
           ctx.strokeStyle = '#fff';
           ctx.lineWidth = 2;
           ctx.stroke();
         }
-        // Label
-        ctx.fillStyle = 'var(--text-secondary, #9898b0)';
-        ctx.font = '9px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        const label = n.label.length > 12 ? n.label.slice(0, 11) + '\u2026' : n.label;
-        ctx.fillText(label, n.x, n.y + n.radius + 12);
+      }
+
+      // Labels (second pass with collision avoidance)
+      const drawnLabels = [];
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (const n of nodes) {
+        const label = n.label.length > 10 ? n.label.slice(0, 9) + '\u2026' : n.label;
+        const m = ctx.measureText(label);
+        const tw = m.width + 8;
+        const th = 14;
+        const lx = n.x;
+        const ly = n.y + n.radius + 4;
+
+        let collides = false;
+        for (const d of drawnLabels) {
+          if (Math.abs(lx - d.x) < (tw + d.w) / 2 && Math.abs(ly - d.y) < th + 2) {
+            collides = true; break;
+          }
+        }
+        if (collides) continue;
+        drawnLabels.push({ x: lx, y: ly, w: tw });
+
+        ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(lx - tw / 2, ly, tw, th, 3);
+        ctx.fill();
+
+        ctx.fillStyle = n.group === 'local' ? '#00cec9' : '#74b9ff';
+        ctx.fillText(label, lx, ly + 2);
       }
     }
 
@@ -574,7 +613,7 @@
     function findNode(pos) {
       for (const n of nodes) {
         const dx = pos.x - n.x, dy = pos.y - n.y;
-        if (dx * dx + dy * dy < (n.radius + 8) * (n.radius + 8)) return n;
+        if (dx * dx + dy * dy < (n.radius + 10) * (n.radius + 10)) return n;
       }
       return null;
     }
@@ -582,19 +621,33 @@
     canvas.addEventListener('mousedown', (e) => {
       const pos = getMousePos(e);
       dragNode = findNode(pos);
-      if (dragNode) { cancelAnimationFrame(animId); }
+      if (dragNode) {
+        isDragging = true;
+        cancelAnimationFrame(animId);
+      }
     });
     canvas.addEventListener('mousemove', (e) => {
-      if (!dragNode) return;
+      if (!dragNode || !isDragging) return;
       const pos = getMousePos(e);
-      dragNode.x = pos.x; dragNode.y = pos.y;
+      dragNode.x = pos.x;
+      dragNode.y = pos.y;
+      dragNode.vx = 0;
+      dragNode.vy = 0;
       draw();
     });
     canvas.addEventListener('mouseup', () => {
-      if (dragNode) { dragNode = null; animId = requestAnimationFrame(simulate); }
+      if (dragNode && isDragging) {
+        dragNode = null;
+        isDragging = false;
+        animId = requestAnimationFrame(simulate);
+      }
     });
     canvas.addEventListener('mouseleave', () => {
-      if (dragNode) { dragNode = null; animId = requestAnimationFrame(simulate); }
+      if (dragNode && isDragging) {
+        dragNode = null;
+        isDragging = false;
+        animId = requestAnimationFrame(simulate);
+      }
     });
 
     // Touch support
@@ -603,24 +656,33 @@
       const touch = e.touches[0];
       const pos = getMousePos(touch);
       dragNode = findNode(pos);
-      if (dragNode) cancelAnimationFrame(animId);
+      if (dragNode) {
+        isDragging = true;
+        cancelAnimationFrame(animId);
+      }
     }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
       e.preventDefault();
-      if (!dragNode) return;
+      if (!dragNode || !isDragging) return;
       const touch = e.touches[0];
       const pos = getMousePos(touch);
-      dragNode.x = pos.x; dragNode.y = pos.y;
+      dragNode.x = pos.x;
+      dragNode.y = pos.y;
+      dragNode.vx = 0;
+      dragNode.vy = 0;
       draw();
     }, { passive: false });
     canvas.addEventListener('touchend', (e) => {
       e.preventDefault();
-      if (dragNode) { dragNode = null; animId = requestAnimationFrame(simulate); }
+      if (dragNode && isDragging) {
+        dragNode = null;
+        isDragging = false;
+        animId = requestAnimationFrame(simulate);
+      }
     }, { passive: false });
 
     animId = requestAnimationFrame(simulate);
   }
-
   function renderLanguages(data) {
     DOM.langBars.innerHTML = '';
     if (!data.languages || !data.languages.length) {
@@ -710,7 +772,7 @@
     }
   }
 
-  // ── Compare ──
+  // â”€â”€ Compare â”€â”€
   function renderCompare(data) {
     DOM.compareResults.innerHTML = '';
     const r1 = data.repo1, r2 = data.repo2;
@@ -729,7 +791,7 @@
         <div class="diff-row"><span class="diff-label">Project type</span><span class="diff-val">${r1.projectType}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.projectType}</span></div>
         <div class="diff-row"><span class="diff-label">Total files</span><span class="diff-val">${r1.totalFiles.toLocaleString()}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.totalFiles.toLocaleString()}</span></div>
         <div class="diff-row"><span class="diff-label">Stars</span><span class="diff-val">${(r1.repo.stars || 0).toLocaleString()}</span><span class="diff-vs">vs</span><span class="diff-val">${(r2.repo.stars || 0).toLocaleString()}</span></div>
-        <div class="diff-row"><span class="diff-label">Primary language</span><span class="diff-val">${r1.repo.language || '—'}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.repo.language || '—'}</span></div>
+        <div class="diff-row"><span class="diff-label">Primary language</span><span class="diff-val">${r1.repo.language || 'â€”'}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.repo.language || 'â€”'}</span></div>
       </div>`;
     DOM.compareResults.appendChild(diff);
     const act = document.createElement('div'); act.className = 'new-analysis';
@@ -743,8 +805,8 @@
 
   function compareCol(r, label) {
     const fw = r.frameworks.map(f => f.name).join(', ') || 'none detected';
-    const arch = r.archPatterns && r.archPatterns.length ? r.archPatterns[0].name : '—';
-    const langs = r.languages ? r.languages.slice(0, 4).map(l => `${LANGUAGE_NAMES[l.ext] || l.ext} (${l.count})`).join('<br>') : '—';
+    const arch = r.archPatterns && r.archPatterns.length ? r.archPatterns[0].name : 'â€”';
+    const langs = r.languages ? r.languages.slice(0, 4).map(l => `${LANGUAGE_NAMES[l.ext] || l.ext} (${l.count})`).join('<br>') : 'â€”';
     return `
       <div class="compare-repo-label">Repo ${label}</div>
       <div class="compare-repo-name">${r.repo.full_name}</div>
@@ -755,14 +817,14 @@
       <div class="compare-section">Files</div><div class="compare-value">${r.totalFiles.toLocaleString()}</div>`;
   }
 
-  // ── Export / Share ──
+  // â”€â”€ Export / Share â”€â”€
   function generateMarkdown(data) {
     const r = data.repo;
     let md = `# ${r.full_name}\n\n`;
     if (r.description) md += `${r.description}\n\n`;
     md += `**Stars:** ${(r.stars || 0).toLocaleString()}  \n`;
     md += `**Files:** ${data.totalFiles.toLocaleString()}  \n`;
-    md += `**Language:** ${r.language || '—'}  \n\n`;
+    md += `**Language:** ${r.language || 'â€”'}  \n\n`;
     if (data.narrative) {
       for (const sec of data.narrative) {
         md += `## ${sec.heading}\n\n`;
@@ -809,7 +871,7 @@
     }
   }
 
-  // ── Events ──
+  // â”€â”€ Events â”€â”€
   DOM.analyzeBtn.addEventListener('click', () => {
     const raw = DOM.repoUrl.value;
     const url = extractUrl(raw);
@@ -853,7 +915,7 @@
   DOM.exportMdBtn.addEventListener('click', copyMarkdown);
   DOM.shareUrlBtn.addEventListener('click', copyShareUrl);
 
-  // ── Query param handling ──
+  // â”€â”€ Query param handling â”€â”€
   (function handleQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const repo = params.get('repo');
@@ -864,12 +926,12 @@
     }
   })();
 
-  // ── Prevent Enter on compare toggle from submitting ──
+  // â”€â”€ Prevent Enter on compare toggle from submitting â”€â”€
   DOM.compareToggle.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 
   renderHistory();
 
-  // ── Drag & drop ──
+  // â”€â”€ Drag & drop â”€â”€
   let dragCounter = 0;
   DOM.dropZone.addEventListener('dragenter', (e) => { e.preventDefault(); dragCounter++; DOM.dropZone.classList.add('dragover'); });
   DOM.dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dragCounter--; if (dragCounter === 0) DOM.dropZone.classList.remove('dragover'); });
