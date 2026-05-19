@@ -171,7 +171,13 @@
   // ── Keyboard Shortcuts ──
   function toggleShortcuts(show) {
     try {
-      DOM.shortcutsModal.classList.toggle('hidden', show === undefined ? DOM.shortcutsModal.classList.contains('hidden') : !show);
+      if (show === undefined) {
+        DOM.shortcutsModal.classList.toggle('hidden');
+      } else if (show) {
+        DOM.shortcutsModal.classList.remove('hidden');
+      } else {
+        DOM.shortcutsModal.classList.add('hidden');
+      }
     } catch {}
   }
   if (DOM.keyboardHint) DOM.keyboardHint.addEventListener('click', () => toggleShortcuts());
