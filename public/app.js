@@ -106,7 +106,7 @@
       btn.className = 'history-pill';
       btn.textContent = url.replace('https://github.com/', '');
       btn.title = url;
-      btn.addEventListener('click', () => { DOM.repoUrl.value = url; DOM.analyzeBtn.click(); });
+      btn.addEventListener('click', () => { fillRepoUrl(url); });
       DOM.historyContainer.appendChild(btn);
     }
   }
@@ -138,8 +138,7 @@
           <span>★ ${(r.stars || 0).toLocaleString()}</span>
         </div>`;
       card.addEventListener('click', () => {
-        DOM.repoUrl.value = `https://github.com/${r.full_name}`;
-        DOM.analyzeBtn.click();
+        fillRepoUrl(`https://github.com/${r.full_name}`);
       });
       DOM.trendingGrid.appendChild(card);
     }
@@ -208,6 +207,21 @@
     }
     if (/^[\w.-]+\/[\w.-]+$/.test(input)) return `https://github.com/${input}`;
     return null;
+  }
+
+  function fillRepoUrl(url) {
+    if (!isCompare) { DOM.repoUrl.value = url; DOM.analyzeBtn.click(); return; }
+    const first = DOM.repoUrl.value.trim();
+    const second = DOM.repoUrl2.value.trim();
+    if (!first || first.includes(url.replace('https://github.com/', ''))) {
+      DOM.repoUrl.value = url;
+    } else if (!second) {
+      DOM.repoUrl2.value = url;
+    } else {
+      DOM.repoUrl.value = url;
+      DOM.repoUrl2.value = '';
+    }
+    DOM.analyzeBtn.click();
   }
 
   function showError(msg) { DOM.errorMsg.textContent = msg; DOM.errorMsg.classList.remove('hidden'); }
@@ -815,8 +829,7 @@
 
   document.querySelectorAll('.example-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      DOM.repoUrl.value = `https://github.com/${btn.dataset.repo}`;
-      DOM.analyzeBtn.click();
+      fillRepoUrl(`https://github.com/${btn.dataset.repo}`);
     });
   });
 
@@ -844,7 +857,7 @@
   (function handleQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const repo = params.get('repo');
-    if (repo) { DOM.repoUrl.value = repo; DOM.analyzeBtn.click(); }
+    if (repo) { fillRepoUrl(repo); }
     if (params.get('error') === 'oauth-not-configured') {
       showError('GitHub OAuth is not configured on this server. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env');
       setTimeout(() => { history.replaceState(null, '', window.location.pathname); }, 100);
@@ -864,7 +877,7 @@
   DOM.dropZone.addEventListener('drop', (e) => {
     e.preventDefault(); dragCounter = 0; DOM.dropZone.classList.remove('dragover');
     const text = e.dataTransfer.getData('text');
-    if (text) { DOM.repoUrl.value = text; DOM.analyzeBtn.click(); }
+    if (text) { fillRepoUrl(text); }
   });
 
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
