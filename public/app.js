@@ -156,22 +156,27 @@
         DOM.authBtn.classList.add('hidden');
         DOM.authAvatar.classList.remove('hidden');
         DOM.authAvatar.innerHTML = `<img src="${data.user.avatar}" alt="${data.user.login}" class="auth-avatar-img" title="Signed in as ${data.user.login}">`;
-      } else {
+      } else if (data.available) {
         DOM.authBtn.classList.remove('hidden');
         DOM.authAvatar.classList.add('hidden');
+      } else {
+        DOM.authBtn.classList.add('hidden');
+        DOM.authAvatar.classList.add('hidden');
       }
-    } catch { DOM.authBtn.classList.remove('hidden'); }
+    } catch { DOM.authBtn.classList.add('hidden'); }
   }
   DOM.authBtn.addEventListener('click', () => { window.location.href = '/api/auth/github'; });
   checkAuth();
 
   // ── Keyboard Shortcuts ──
   function toggleShortcuts(show) {
-    DOM.shortcutsModal.classList.toggle('hidden', show === undefined ? DOM.shortcutsModal.classList.contains('hidden') : !show);
+    try {
+      DOM.shortcutsModal.classList.toggle('hidden', show === undefined ? DOM.shortcutsModal.classList.contains('hidden') : !show);
+    } catch {}
   }
-  DOM.keyboardHint.addEventListener('click', () => toggleShortcuts());
-  DOM.shortcutsBackdrop.addEventListener('click', () => toggleShortcuts(false));
-  DOM.shortcutsClose.addEventListener('click', () => toggleShortcuts(false));
+  if (DOM.keyboardHint) DOM.keyboardHint.addEventListener('click', () => toggleShortcuts());
+  if (DOM.shortcutsBackdrop) DOM.shortcutsBackdrop.addEventListener('click', () => toggleShortcuts(false));
+  if (DOM.shortcutsClose) DOM.shortcutsClose.addEventListener('click', () => toggleShortcuts(false));
 
   document.addEventListener('keydown', (e) => {
     if (e.key === '?' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleShortcuts(); }
@@ -829,11 +834,15 @@
   DOM.exportMdBtn.addEventListener('click', copyMarkdown);
   DOM.shareUrlBtn.addEventListener('click', copyShareUrl);
 
-  // ── Share URL from query param ──
-  (function loadShare() {
+  // ── Query param handling ──
+  (function handleQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const repo = params.get('repo');
     if (repo) { DOM.repoUrl.value = repo; DOM.analyzeBtn.click(); }
+    if (params.get('error') === 'oauth-not-configured') {
+      showError('GitHub OAuth is not configured on this server. Set GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env');
+      setTimeout(() => { history.replaceState(null, '', window.location.pathname); }, 100);
+    }
   })();
 
   // ── Prevent Enter on compare toggle from submitting ──

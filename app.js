@@ -159,7 +159,7 @@ const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || '';
 const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || '';
 
 app.get('/api/auth/github', (req, res) => {
-  if (!GITHUB_CLIENT_ID) return res.json({ error: 'GitHub OAuth not configured' });
+  if (!GITHUB_CLIENT_ID) return res.redirect('/?error=oauth-not-configured');
   const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/github/callback`;
   const url = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=`;
   res.redirect(url);
@@ -194,7 +194,7 @@ app.get('/api/auth/me', (req, res) => {
   if (req.session?.githubToken && req.session?.githubUser) {
     res.json({ authenticated: true, user: req.session.githubUser });
   } else {
-    res.json({ authenticated: false });
+    res.json({ authenticated: false, available: !!GITHUB_CLIENT_ID });
   }
 });
 
