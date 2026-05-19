@@ -303,7 +303,8 @@
     try {
       updateLoading('Fetching repository structure...', 20);
       await sleep(200);
-      updateLoading('Analyzing with ' + (provider === 'openai' ? 'OpenAI' : 'Claude') + '...', 50);
+      const providerName = provider === 'openai' ? 'OpenAI' : provider === 'claude' ? 'Claude' : 'Gemini';
+      updateLoading('Analyzing with ' + providerName + '...', 50);
       const res = await fetch('/api/analyze-ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

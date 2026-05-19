@@ -138,7 +138,7 @@ app.post('/api/analyze-ai', async (req, res) => {
     const { url, apiKey, provider } = req.body;
     if (!url) return res.status(400).json({ error: 'URL is required' });
     if (!apiKey) return res.status(400).json({ error: 'API key is required' });
-    if (!provider || !['openai', 'claude'].includes(provider)) return res.status(400).json({ error: 'Provider must be openai or claude' });
+    if (!provider || !['openai', 'claude', 'gemini'].includes(provider)) return res.status(400).json({ error: 'Provider must be openai, claude, or gemini' });
 
     const { owner, repo } = parseGitHubUrl(url);
     const token = req.session?.githubToken;
@@ -191,7 +191,7 @@ Keep descriptions accurate and specific to this repo.`;
       }
       const json = await openaiRes.json();
       aiNarrative = json.choices?.[0]?.message?.content || '';
-    } else {
+    } else if (provider === 'claude') {
       const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
@@ -203,6 +203,18 @@ Keep descriptions accurate and specific to this repo.`;
       }
       const json = await claudeRes.json();
       aiNarrative = json.content?.[0]?.text || '';
+    } else {
+      const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { maxOutputTokens: 1000, temperature: 0.5 } }),
+      });
+      if (!geminiRes.ok) {
+        const err = await geminiRes.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Gemini API error: ${geminiRes.status}`);
+      }
+      const json = await geminiRes.json();
+      aiNarrative = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
 
     res.json({ ...data, aiNarrative });
