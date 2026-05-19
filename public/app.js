@@ -1032,5 +1032,12 @@
     if (text) { fillRepoUrl(text); }
   });
 
+  // ── PWA: register service worker ──
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 })();
