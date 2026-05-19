@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>repovision — see inside any GitHub repo</title>
+    <title>repovision — see inside any GitHub repo</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236c5ce7'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-5-5 1.41-1.41L11 14.17l7.59-7.59L20 8l-9 9z'/></svg>">
   <link rel="stylesheet" href="/styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -16,10 +17,15 @@
             <span class="logo-icon">&#9670;</span>
             repovision
           </h1>
-          <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
-            <span class="theme-icon-light">&#9788;</span>
-            <span class="theme-icon-dark">&#9790;</span>
-          </button>
+          <div class="header-buttons">
+            <button id="keyboard-hint" class="theme-toggle" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">?</button>
+            <button id="theme-toggle" class="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+              <span class="theme-icon-light">&#9788;</span>
+              <span class="theme-icon-dark">&#9790;</span>
+            </button>
+            <button id="auth-btn" class="btn btn-sm btn-auth hidden" title="Sign in with GitHub">Sign in</button>
+            <div id="auth-avatar" class="auth-avatar hidden"></div>
+          </div>
         </div>
         <p class="tagline">Drop any public GitHub repo URL. Get the full picture.</p>
       </div>
@@ -70,6 +76,15 @@
             <button class="example-btn" data-repo="tailwindlabs/tailwindcss">tailwindlabs/tailwindcss</button>
             <button class="example-btn" data-repo="rust-lang/rust">rust-lang/rust</button>
           </div>
+
+          <!-- Trending -->
+          <div id="trending-container" class="trending-container hidden">
+            <div class="trending-header">
+              <span class="trending-label">Trending repos</span>
+              <button id="refresh-trending" class="btn btn-sm" title="Refresh">Refresh</button>
+            </div>
+            <div id="trending-grid" class="trending-grid"></div>
+          </div>
           <p id="error-msg" class="error-msg hidden"></p>
         </div>
       </section>
@@ -111,6 +126,20 @@
           <!-- Deep Scan -->
           <div id="deep-scan-container" class="hidden"></div>
 
+          <!-- Dep Graph -->
+          <div id="dep-graph-container" class="dep-graph-container hidden">
+            <div class="card">
+              <div class="card-header" id="dep-graph-header">
+                <h3 class="card-title"><span class="card-icon">&#9670;</span> Dependency Graph</h3>
+                <span class="card-chevron">&#9660;</span>
+              </div>
+              <div class="card-body">
+                <p class="dep-graph-hint">Drag nodes to explore. Green = local files, Blue = external packages.</p>
+                <canvas id="dep-graph-canvas" class="dep-graph-canvas"></canvas>
+              </div>
+            </div>
+          </div>
+
           <!-- Languages -->
           <div class="card">
             <h3 class="card-title"><span class="card-icon">&#9670;</span> Language Breakdown</h3>
@@ -147,6 +176,24 @@
       <p>repovision &mdash; built with <span class="heart">&hearts;</span></p>
     </footer>
   </div>
+  <!-- Shortcuts Modal -->
+  <div id="shortcuts-modal" class="modal hidden">
+    <div class="modal-backdrop" id="shortcuts-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Keyboard Shortcuts</h2>
+        <button id="shortcuts-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcut-row"><kbd>?</kbd><span>Toggle this help</span></div>
+        <div class="shortcut-row"><kbd>Enter</kbd><span>Analyze the entered repo</span></div>
+        <div class="shortcut-row"><kbd>C</kbd><span>Toggle compare mode</span></div>
+        <div class="shortcut-row"><kbd>Esc</kbd><span>Clear input / close</span></div>
+        <div class="shortcut-row"><kbd>R</kbd><span>Refresh trending repos</span></div>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

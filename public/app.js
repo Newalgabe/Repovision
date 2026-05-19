@@ -32,6 +32,18 @@
     compareInput: document.getElementById('compare-input-wrapper'),
     exportMdBtn: document.getElementById('export-md-btn'),
     shareUrlBtn: document.getElementById('share-url-btn'),
+    depGraphCanvas: document.getElementById('dep-graph-canvas'),
+    depGraphContainer: document.getElementById('dep-graph-container'),
+    depGraphHeader: document.getElementById('dep-graph-header'),
+    trendingContainer: document.getElementById('trending-container'),
+    trendingGrid: document.getElementById('trending-grid'),
+    refreshTrending: document.getElementById('refresh-trending'),
+    authBtn: document.getElementById('auth-btn'),
+    authAvatar: document.getElementById('auth-avatar'),
+    shortcutsModal: document.getElementById('shortcuts-modal'),
+    shortcutsBackdrop: document.getElementById('shortcuts-backdrop'),
+    shortcutsClose: document.getElementById('shortcuts-close'),
+    keyboardHint: document.getElementById('keyboard-hint'),
   };
 
   let currentData = null;
@@ -58,6 +70,18 @@
     r: 'R', scala: 'Scala', toml: 'TOML', xml: 'XML',
   };
 
+  // ── Theme Toggle ──
+  const themeToggle = document.getElementById('theme-toggle');
+  function loadTheme() {
+    const saved = localStorage.getItem('repovision_theme');
+    if (saved === 'light') document.documentElement.classList.add('light-theme');
+  }
+  themeToggle.addEventListener('click', () => {
+    const isLight = document.documentElement.classList.toggle('light-theme');
+    localStorage.setItem('repovision_theme', isLight ? 'light' : 'dark');
+  });
+  loadTheme();
+
   // ── History ──
   function getHistory() {
     try { return JSON.parse(localStorage.getItem('repovision_history') || '[]'); }
@@ -80,16 +104,89 @@
     for (const url of h) {
       const btn = document.createElement('button');
       btn.className = 'history-pill';
-      const short = url.replace('https://github.com/', '');
-      btn.textContent = short;
+      btn.textContent = url.replace('https://github.com/', '');
       btn.title = url;
-      btn.addEventListener('click', () => {
-        DOM.repoUrl.value = url;
-        DOM.analyzeBtn.click();
-      });
+      btn.addEventListener('click', () => { DOM.repoUrl.value = url; DOM.analyzeBtn.click(); });
       DOM.historyContainer.appendChild(btn);
     }
   }
+
+  // ── Trending ──
+  let trendingErrorCount = 0;
+  async function loadTrending() {
+    DOM.trendingContainer.classList.remove('hidden');
+    DOM.trendingGrid.innerHTML = '<p class="trending-loading">Loading trending repos...</p>';
+    try {
+      const res = await fetch('/api/trending');
+      const data = await res.json();
+      trendingErrorCount = 0;
+      renderTrending(data.repos);
+    } catch {
+      trendingErrorCount++;
+      DOM.trendingGrid.innerHTML = '<p class="trending-loading">Could not load trending repos.</p>';
+    }
+  }
+  function renderTrending(repos) {
+    DOM.trendingGrid.innerHTML = '';
+    for (const r of repos) {
+      const card = document.createElement('div'); card.className = 'trending-card';
+      card.innerHTML = `
+        <div class="trending-card-name">${r.full_name}</div>
+        <div class="trending-card-desc">${r.description || ''}</div>
+        <div class="trending-card-meta">
+          <span>${r.language || ''}</span>
+          <span>★ ${(r.stars || 0).toLocaleString()}</span>
+        </div>`;
+      card.addEventListener('click', () => {
+        DOM.repoUrl.value = `https://github.com/${r.full_name}`;
+        DOM.analyzeBtn.click();
+      });
+      DOM.trendingGrid.appendChild(card);
+    }
+  }
+  DOM.refreshTrending.addEventListener('click', loadTrending);
+  loadTrending();
+
+  // ── OAuth ──
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/auth/me');
+      const data = await res.json();
+      if (data.authenticated) {
+        DOM.authBtn.classList.add('hidden');
+        DOM.authAvatar.classList.remove('hidden');
+        DOM.authAvatar.innerHTML = `<img src="${data.user.avatar}" alt="${data.user.login}" class="auth-avatar-img" title="Signed in as ${data.user.login}">`;
+      } else {
+        DOM.authBtn.classList.remove('hidden');
+        DOM.authAvatar.classList.add('hidden');
+      }
+    } catch { DOM.authBtn.classList.remove('hidden'); }
+  }
+  DOM.authBtn.addEventListener('click', () => { window.location.href = '/api/auth/github'; });
+  checkAuth();
+
+  // ── Keyboard Shortcuts ──
+  function toggleShortcuts(show) {
+    DOM.shortcutsModal.classList.toggle('hidden', show === undefined ? DOM.shortcutsModal.classList.contains('hidden') : !show);
+  }
+  DOM.keyboardHint.addEventListener('click', () => toggleShortcuts());
+  DOM.shortcutsBackdrop.addEventListener('click', () => toggleShortcuts(false));
+  DOM.shortcutsClose.addEventListener('click', () => toggleShortcuts(false));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); toggleShortcuts(); }
+    if (e.key === 'Escape') { toggleShortcuts(false); if (document.activeElement) document.activeElement.blur(); }
+    if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.target.matches('input,textarea')) {
+      e.preventDefault(); DOM.compareToggle.checked = !DOM.compareToggle.checked;
+      DOM.compareToggle.dispatchEvent(new Event('change'));
+    }
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey && !e.target.matches('input,textarea')) {
+      if (!DOM.trendingContainer.classList.contains('hidden')) loadTrending();
+    }
+    if (e.key === 'Enter' && (e.target === DOM.repoUrl || e.target === DOM.repoUrl2)) {
+      DOM.analyzeBtn.click();
+    }
+  });
 
   // ── URL handling ──
   function extractUrl(input) {
@@ -125,7 +222,6 @@
     DOM.analyzeBtn.disabled = true;
     DOM.analyzeBtn.querySelector('.btn-text').classList.add('hidden');
     DOM.analyzeBtn.querySelector('.btn-spinner').classList.remove('hidden');
-
     try {
       updateLoading('Fetching repository structure...', 25);
       await sleep(200);
@@ -166,7 +262,6 @@
     DOM.analyzeBtn.disabled = true;
     DOM.analyzeBtn.querySelector('.btn-text').classList.add('hidden');
     DOM.analyzeBtn.querySelector('.btn-spinner').classList.remove('hidden');
-
     try {
       updateLoading('Fetching both repositories...', 20);
       await sleep(300);
@@ -201,22 +296,6 @@
     }
   }
 
-  // ── Theme Toggle ──
-  const themeToggle = document.getElementById('theme-toggle');
-  function setTheme(light) {
-    document.documentElement.classList.toggle('light-theme', light);
-    localStorage.setItem('repovision_theme', light ? 'light' : 'dark');
-  }
-  function loadTheme() {
-    const saved = localStorage.getItem('repovision_theme');
-    if (saved === 'light') document.documentElement.classList.add('light-theme');
-  }
-  themeToggle.addEventListener('click', () => {
-    const isLight = document.documentElement.classList.toggle('light-theme');
-    localStorage.setItem('repovision_theme', isLight ? 'light' : 'dark');
-  });
-  loadTheme();
-
   // ── Collapsible Cards ──
   function makeCollapsibleCard(title, icon) {
     const card = document.createElement('div'); card.className = 'card';
@@ -236,6 +315,7 @@
     renderRepoHeader(data);
     renderNarrative(data);
     renderDeepScan(data);
+    renderDepGraph(data);
     renderLanguages(data);
     renderFileTree(data.fileTree);
     renderComponents(data);
@@ -340,6 +420,182 @@
     DOM.deepScanContainer.appendChild(card);
   }
 
+  // ── Dependency Graph ──
+  function renderDepGraph(data) {
+    const canvas = DOM.depGraphCanvas;
+    if (!data.depGraph || !data.depGraph.nodes || data.depGraph.nodes.length < 2) {
+      DOM.depGraphContainer.classList.add('hidden');
+      return;
+    }
+    DOM.depGraphContainer.classList.remove('hidden');
+
+    // Collapsible
+    const header = DOM.depGraphHeader;
+    const cardBody = header.nextElementSibling;
+    let collapsed = false;
+    header.addEventListener('click', () => {
+      collapsed = !collapsed;
+      cardBody.classList.toggle('hidden', collapsed);
+      header.querySelector('.card-chevron').style.transform = collapsed ? 'rotate(-90deg)' : '';
+    });
+
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.parentElement.getBoundingClientRect();
+    const W = Math.min(rect.width - 4, 800);
+    const H = 400;
+    canvas.width = W * 2;
+    canvas.height = H * 2;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.scale(2, 2);
+
+    const nodes = data.depGraph.nodes.slice(0, 30);
+    const edges = data.depGraph.edges.filter(e => {
+      return nodes.some(n => n.id === e.source) && nodes.some(n => n.id === e.target);
+    }).slice(0, 60);
+    const nodeMap = {};
+
+    // Position nodes randomly
+    for (const n of nodes) {
+      n.x = 50 + Math.random() * (W - 100);
+      n.y = 50 + Math.random() * (H - 100);
+      n.vx = 0; n.vy = 0;
+      n.radius = n.group === 'local' ? 10 : 7;
+      nodeMap[n.id] = n;
+    }
+
+    let animId = null;
+    let dragNode = null;
+
+    function simulate() {
+      // Repulsion
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const a = nodes[i], b = nodes[j];
+          let dx = a.x - b.x, dy = a.y - b.y;
+          let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = 5000 / (dist * dist);
+          dx /= dist; dy /= dist;
+          a.vx += dx * force; a.vy += dy * force;
+          b.vx -= dx * force; b.vy -= dy * force;
+        }
+      }
+      // Attraction along edges
+      for (const e of edges) {
+        const s = nodeMap[e.source], t = nodeMap[e.target];
+        if (!s || !t) continue;
+        const dx = t.x - s.x, dy = t.y - s.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = dist / 200;
+        s.vx += (dx / dist) * force;
+        s.vy += (dy / dist) * force;
+        t.vx -= (dx / dist) * force;
+        t.vy -= (dy / dist) * force;
+      }
+      // Center gravity
+      for (const n of nodes) {
+        n.vx += (W / 2 - n.x) * 0.001;
+        n.vy += (H / 2 - n.y) * 0.001;
+        n.vx *= 0.95; n.vy *= 0.95;
+        n.x += n.vx; n.y += n.vy;
+        n.x = Math.max(20, Math.min(W - 20, n.x));
+        n.y = Math.max(20, Math.min(H - 20, n.y));
+      }
+      draw();
+      if (!dragNode) animId = requestAnimationFrame(simulate);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Edges
+      for (const e of edges) {
+        const s = nodeMap[e.source], t = nodeMap[e.target];
+        if (!s || !t) continue;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(t.x, t.y);
+        ctx.strokeStyle = e.type === 'local' ? 'rgba(108, 92, 231, 0.25)' : 'rgba(152, 152, 176, 0.15)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Nodes
+      for (const n of nodes) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+        ctx.fillStyle = n.group === 'local' ? '#00cec9' : '#74b9ff';
+        if (n === dragNode) ctx.fillStyle = '#6c5ce7';
+        ctx.fill();
+        if (n === dragNode) {
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+        // Label
+        ctx.fillStyle = 'var(--text-secondary, #9898b0)';
+        ctx.font = '9px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        const label = n.label.length > 12 ? n.label.slice(0, 11) + '\u2026' : n.label;
+        ctx.fillText(label, n.x, n.y + n.radius + 12);
+      }
+    }
+
+    // Mouse interaction
+    function getMousePos(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * (W / r.width), y: (e.clientY - r.top) * (H / r.height) };
+    }
+    function findNode(pos) {
+      for (const n of nodes) {
+        const dx = pos.x - n.x, dy = pos.y - n.y;
+        if (dx * dx + dy * dy < (n.radius + 8) * (n.radius + 8)) return n;
+      }
+      return null;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      const pos = getMousePos(e);
+      dragNode = findNode(pos);
+      if (dragNode) { cancelAnimationFrame(animId); }
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      if (!dragNode) return;
+      const pos = getMousePos(e);
+      dragNode.x = pos.x; dragNode.y = pos.y;
+      draw();
+    });
+    canvas.addEventListener('mouseup', () => {
+      if (dragNode) { dragNode = null; animId = requestAnimationFrame(simulate); }
+    });
+    canvas.addEventListener('mouseleave', () => {
+      if (dragNode) { dragNode = null; animId = requestAnimationFrame(simulate); }
+    });
+
+    // Touch support
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const pos = getMousePos(touch);
+      dragNode = findNode(pos);
+      if (dragNode) cancelAnimationFrame(animId);
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (!dragNode) return;
+      const touch = e.touches[0];
+      const pos = getMousePos(touch);
+      dragNode.x = pos.x; dragNode.y = pos.y;
+      draw();
+    }, { passive: false });
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (dragNode) { dragNode = null; animId = requestAnimationFrame(simulate); }
+    }, { passive: false });
+
+    animId = requestAnimationFrame(simulate);
+  }
+
   function renderLanguages(data) {
     DOM.langBars.innerHTML = '';
     if (!data.languages || !data.languages.length) {
@@ -433,23 +689,16 @@
   function renderCompare(data) {
     DOM.compareResults.innerHTML = '';
     const r1 = data.repo1, r2 = data.repo2;
-
-    // Header
     const header = document.createElement('div');
     header.className = 'compare-header';
     header.innerHTML = `<h2 class="compare-title">Comparing repos</h2>`;
     DOM.compareResults.appendChild(header);
-
-    // Side-by-side
     const grid = document.createElement('div'); grid.className = 'compare-grid';
     grid.innerHTML = `
       <div class="compare-col">${compareCol(r1, 'A')}</div>
       <div class="compare-divider"></div>
-      <div class="compare-col">${compareCol(r2, 'B')}</div>
-    `;
+      <div class="compare-col">${compareCol(r2, 'B')}</div>`;
     DOM.compareResults.appendChild(grid);
-
-    // Diff stats
     const { card: diff, body: diffBody } = makeCollapsibleCard('At a glance', '&#9670;');
     diffBody.innerHTML = `<div class="compare-diff">
         <div class="diff-row"><span class="diff-label">Project type</span><span class="diff-val">${r1.projectType}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.projectType}</span></div>
@@ -458,8 +707,6 @@
         <div class="diff-row"><span class="diff-label">Primary language</span><span class="diff-val">${r1.repo.language || '—'}</span><span class="diff-vs">vs</span><span class="diff-val">${r2.repo.language || '—'}</span></div>
       </div>`;
     DOM.compareResults.appendChild(diff);
-
-    // Action
     const act = document.createElement('div'); act.className = 'new-analysis';
     act.innerHTML = '<button id="compare-new-btn" class="btn btn-secondary">Compare different repos</button>';
     DOM.compareResults.appendChild(act);
@@ -480,8 +727,7 @@
       <div class="compare-section">Frameworks</div><div class="compare-value">${fw}</div>
       <div class="compare-section">Architecture</div><div class="compare-value">${arch}</div>
       <div class="compare-section">Top languages</div><div class="compare-value">${langs}</div>
-      <div class="compare-section">Files</div><div class="compare-value">${r.totalFiles.toLocaleString()}</div>
-    `;
+      <div class="compare-section">Files</div><div class="compare-value">${r.totalFiles.toLocaleString()}</div>`;
   }
 
   // ── Export / Share ──
@@ -550,9 +796,7 @@
       if (!url2) { showError('Enter a valid URL for the second repo'); return; }
       DOM.repoUrl2.value = url2;
       compareRepos(url, url2);
-    } else {
-      analyze(url);
-    }
+    } else { analyze(url); }
   });
 
   DOM.repoUrl.addEventListener('keydown', (e) => { if (e.key === 'Enter') DOM.analyzeBtn.click(); });
@@ -589,11 +833,11 @@
   (function loadShare() {
     const params = new URLSearchParams(window.location.search);
     const repo = params.get('repo');
-    if (repo) {
-      DOM.repoUrl.value = repo;
-      DOM.analyzeBtn.click();
-    }
+    if (repo) { DOM.repoUrl.value = repo; DOM.analyzeBtn.click(); }
   })();
+
+  // ── Prevent Enter on compare toggle from submitting ──
+  DOM.compareToggle.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
 
   renderHistory();
 

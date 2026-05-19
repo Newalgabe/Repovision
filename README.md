@@ -25,6 +25,10 @@ Plus: language distribution bars, interactive file tree, key components grid, de
 - **Theme toggle** — switch between dark and light mode (persisted in localStorage)
 - **Collapsible cards** — expand/collapse each section of the analysis
 - **Deep file scan** — reads the most important files and extracts exports, routes, classes, and functions
+- **Dependency graph** — interactive force-directed graph showing how files connect (local vs. external imports)
+- **GitHub OAuth** — sign in with your GitHub account to use your own rate limit (5,000 req/hr)
+- **Trending repos** — fetched from GitHub's API, one-click to analyze
+- **Keyboard shortcuts** — press `?` to see all shortcuts
 - **History** — last 8 repos shown as clickable pills below the input
 - **Export Markdown** — copy the full analysis as Markdown
 - **Share via URL** — copy a `?repo=` link that auto-runs on page load
@@ -45,6 +49,9 @@ Open http://localhost:3000
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `GITHUB_TOKEN` | No | — | GitHub personal access token. Without it you get 60 requests/hour (shared IP). With a token you get 5,000. [Create one here](https://github.com/settings/tokens) — no special scopes needed for public repos. |
+| `GITHUB_CLIENT_ID` | No | — | GitHub OAuth App client ID. Enables "Sign in with GitHub" so users can use their own rate limit. |
+| `GITHUB_CLIENT_SECRET` | No | — | GitHub OAuth App client secret. |
+| `SESSION_SECRET` | No | `repovision-dev-secret...` | Session encryption key. Set a random string in production. |
 | `PORT` | No | `3000` | Server port |
 
 ## Deploy to Vercel
@@ -86,7 +93,7 @@ The analyzer (`analyzer.js`) uses rule-based inference — no AI API calls. It:
 - Scores all files by importance and deep-scans the top 8 for exports/routes/classes/functions
 - Generates a structured narrative from all of this data
 
-The frontend renders the result as collapsible cards with styled lists, code highlights, an interactive file explorer, and a light/dark theme toggle.
+The frontend renders the result as collapsible cards with styled lists, code highlights, an interactive file explorer, a light/dark theme toggle, and a force-directed dependency graph.
 
 ## Stack
 

@@ -3,9 +3,12 @@ const crypto = require('crypto');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
 
-function githubHeaders() {
+let sessionToken = '';
+function setToken(token) { sessionToken = token; }
+function githubHeaders(token) {
   const headers = { 'User-Agent': 'repovision/1.0' };
-  if (GITHUB_TOKEN) headers['Authorization'] = `Bearer ${GITHUB_TOKEN}`;
+  const t = token || sessionToken || GITHUB_TOKEN;
+  if (t) headers['Authorization'] = `Bearer ${t}`;
   return headers;
 }
 
@@ -143,8 +146,8 @@ function classifyFile(name, path) {
   return { lang, icon: '📄', category: 'source' };
 }
 
-async function ghFetch(url) {
-  const res = await fetch(url, { headers: githubHeaders() });
+async function ghFetch(url, token) {
+  const res = await fetch(url, { headers: githubHeaders(token) });
   if (!res.ok) {
     let detail = '';
     try {
@@ -165,13 +168,13 @@ async function ghFetch(url) {
   return res.json();
 }
 
-async function fetchRepoTree(owner, repo) {
+async function fetchRepoTree(owner, repo, token) {
   try {
-    return await ghFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/master?recursive=1`);
+    return await ghFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/master?recursive=1`, token);
   } catch (err) {
     if (err.message.includes('404') || err.message.includes('Not Found')) {
       try {
-        return await ghFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`);
+        return await ghFetch(`https://api.github.com/repos/${owner}/${repo}/git/trees/main?recursive=1`, token);
       } catch (err2) {
         if (err2.message.includes('404') || err2.message.includes('Not Found')) throw new Error('Repository not found or is empty');
         throw err2;
@@ -181,9 +184,9 @@ async function fetchRepoTree(owner, repo) {
   }
 }
 
-async function fetchFileContent(owner, repo, path) {
+async function fetchFileContent(owner, repo, path, token) {
   try {
-    const data = await ghFetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`);
+    const data = await ghFetch(`https://api.github.com/repos/${owner}/${repo}/contents/${path}`, token);
     if (data.encoding === 'base64' && data.content) {
       return Buffer.from(data.content, 'base64').toString('utf-8');
     }
@@ -193,8 +196,8 @@ async function fetchFileContent(owner, repo, path) {
   }
 }
 
-async function fetchRepoInfo(owner, repo) {
-  return ghFetch(`https://api.github.com/repos/${owner}/${repo}`);
+async function fetchRepoInfo(owner, repo, token) {
+  return ghFetch(`https://api.github.com/repos/${owner}/${repo}`, token);
 }
 
 function detectProjectType(treeItems) {
@@ -224,8 +227,8 @@ function detectProjectType(treeItems) {
   return { type: 'Unknown', pm: 'Unknown' };
 }
 
-async function readPackageDeps(owner, repo) {
-  const content = await fetchFileContent(owner, repo, 'package.json');
+async function readPackageDeps(owner, repo, token) {
+  const content = await fetchFileContent(owner, repo, 'package.json', token);
   if (!content) return { dependencies: {}, devDependencies: {} };
   try {
     const pkg = JSON.parse(content);
@@ -278,8 +281,8 @@ function detectArchPattern(treeItems) {
   return scores.slice(0, 3);
 }
 
-async function fetchReadme(owner, repo) {
-  const content = await fetchFileContent(owner, repo, 'README.md');
+async function fetchReadme(owner, repo, token) {
+  const content = await fetchFileContent(owner, repo, 'README.md', token);
   if (!content) return null;
   return content.slice(0, 4000);
 }
@@ -643,12 +646,15 @@ function priorityFiles(items) {
   return scored.slice(0, 12).map(s => s.item);
 }
 
-async function deepScanFiles(owner, repo, items) {
+async function deepScanFiles(owner, repo, items, token) {
   const candidates = priorityFiles(items);
   const results = [];
+  const depGraphNodes = [];
+  const depGraphEdges = [];
+  const nodeSet = new Set();
 
   for (const candidate of candidates.slice(0, 8)) {
-    const content = await fetchFileContent(owner, repo, candidate.path);
+    const content = await fetchFileContent(owner, repo, candidate.path, token);
     if (!content) continue;
 
     const lines = content.split('\n');
@@ -697,19 +703,37 @@ async function deepScanFiles(owner, repo, items) {
       }
     }
 
+    const localImports = imports.filter(i => i.startsWith('.'));
+    const externalImports = imports.filter(i => !i.startsWith('.'));
     results.push({
       path: candidate.path,
       name: candidate.path.split('/').pop(),
       lineCount: lines.length,
       exports: exports.slice(0, 6),
+      imports: imports.slice(0, 10),
+      localImports: localImports.slice(0, 6),
+      externalImports: externalImports.slice(0, 6),
       importCount: imports.length,
       routes: routes.slice(0, 6),
       classes: classes.slice(0, 4),
       topFuncs: funcs.slice(0, 6),
     });
+
+    // Build dep graph
+    if (!nodeSet.has(candidate.path)) {
+      nodeSet.add(candidate.path);
+      depGraphNodes.push({ id: candidate.path, label: candidate.path.split('/').pop(), group: 'local' });
+    }
+    for (const imp of imports) {
+      if (!nodeSet.has(imp)) {
+        nodeSet.add(imp);
+        depGraphNodes.push({ id: imp, label: imp.split('/').pop(), group: imp.startsWith('.') ? 'local' : 'external' });
+      }
+      depGraphEdges.push({ source: candidate.path, target: imp, type: imp.startsWith('.') ? 'local' : 'external' });
+    }
   }
 
-  return results;
+  return { deepScan: results, depGraph: { nodes: depGraphNodes, edges: depGraphEdges } };
 }
 
 function cacheResult(owner, repo, data) {
@@ -731,6 +755,6 @@ module.exports = {
   categorizeComponents, buildFlatTree, generateNarrative,
   detectArchPattern, detectEntryPoints, scanEntryContent,
   fetchReadme, parseReadme, detectProjectPurpose, classifyFile,
-  deepScanFiles,
+  deepScanFiles, setToken,
   cacheResult, getCachedResult, clearCache,
 };
