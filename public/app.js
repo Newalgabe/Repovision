@@ -44,10 +44,20 @@
     shortcutsBackdrop: document.getElementById('shortcuts-backdrop'),
     shortcutsClose: document.getElementById('shortcuts-close'),
     keyboardHint: document.getElementById('keyboard-hint'),
+    aiToggleBtn: document.getElementById('ai-toggle-btn'),
+    aiSettings: document.getElementById('ai-settings'),
+    aiProvider: document.getElementById('ai-provider'),
+    aiKey: document.getElementById('ai-key'),
+    aiKeyToggle: document.getElementById('ai-key-toggle'),
+    aiNarrativeContainer: document.getElementById('ai-narrative-container'),
+    aiNarrativeHeader: document.getElementById('ai-narrative-header'),
+    aiNarrativeBody: document.getElementById('ai-narrative-body'),
   };
 
   let currentData = null;
   let isCompare = false;
+  let isAiMode = false;
+  let aiKeyVisible = false;
 
   const LANG_COLORS = {
     js: '#f7df1e', jsx: '#61dafb', ts: '#3178c6', tsx: '#3178c6',
@@ -281,6 +291,49 @@
     }
   }
 
+  async function analyzeWithAI(url) {
+    hideError();
+    showLoading();
+    DOM.analyzeBtn.disabled = true;
+    DOM.analyzeBtn.querySelector('.btn-text').classList.add('hidden');
+    DOM.analyzeBtn.querySelector('.btn-spinner').classList.remove('hidden');
+    const apiKey = DOM.aiKey.value.trim();
+    const provider = DOM.aiProvider.value;
+    if (!apiKey) { hideLoading(); showError('Enter your API key for AI narrative'); DOM.analyzeBtn.disabled = false; DOM.analyzeBtn.querySelector('.btn-text').classList.remove('hidden'); DOM.analyzeBtn.querySelector('.btn-spinner').classList.add('hidden'); return; }
+    try {
+      updateLoading('Fetching repository structure...', 20);
+      await sleep(200);
+      updateLoading('Analyzing with ' + (provider === 'openai' ? 'OpenAI' : 'Claude') + '...', 50);
+      const res = await fetch('/api/analyze-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, apiKey, provider }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'AI analysis failed'); }
+      updateLoading('Building results...', 80);
+      await sleep(300);
+      const data = await res.json();
+      currentData = data;
+      updateLoading('Done!', 100);
+      await sleep(200);
+      hideLoading();
+      addHistory(url);
+      DOM.compareResults.classList.add('hidden');
+      renderResults(data);
+      DOM.resultsSection.classList.remove('hidden');
+      DOM.results.classList.remove('hidden');
+      DOM.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      hideLoading();
+      DOM.resultsSection.classList.add('hidden');
+      showError(err.message);
+    } finally {
+      DOM.analyzeBtn.disabled = false;
+      DOM.analyzeBtn.querySelector('.btn-text').classList.remove('hidden');
+      DOM.analyzeBtn.querySelector('.btn-spinner').classList.add('hidden');
+    }
+  }
+
   async function compareRepos(url1, url2) {
     hideError();
     showLoading('Analyzing first repo...');
@@ -339,6 +392,7 @@
   function renderResults(data) {
     renderRepoHeader(data);
     renderNarrative(data);
+    renderAiNarrative(data);
     renderDeepScan(data);
     renderDepGraph(data);
     renderLanguages(data);
@@ -346,6 +400,26 @@
     renderComponents(data);
     DOM.exportMdBtn.classList.remove('hidden');
     DOM.shareUrlBtn.classList.remove('hidden');
+  }
+
+  function renderAiNarrative(data) {
+    if (!data.aiNarrative) { DOM.aiNarrativeContainer.classList.add('hidden'); return; }
+    DOM.aiNarrativeContainer.classList.remove('hidden');
+    DOM.aiNarrativeBody.innerHTML = data.aiNarrative
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.*?)`/g, '<code>$1</code>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
+    DOM.aiNarrativeBody.innerHTML = '<p>' + DOM.aiNarrativeBody.innerHTML + '</p>';
+
+    let collapsed = false;
+    const header = DOM.aiNarrativeHeader;
+    const body = DOM.aiNarrativeBody;
+    header.addEventListener('click', () => {
+      collapsed = !collapsed;
+      body.classList.toggle('hidden', collapsed);
+      header.querySelector('.card-chevron').style.transform = collapsed ? 'rotate(-90deg)' : '';
+    });
   }
 
   function renderRepoHeader(data) {
@@ -883,6 +957,8 @@
       if (!url2) { showError('Enter a valid URL for the second repo'); return; }
       DOM.repoUrl2.value = url2;
       compareRepos(url, url2);
+    } else if (isAiMode) {
+      analyzeWithAI(url);
     } else { analyze(url); }
   });
 
@@ -914,6 +990,19 @@
 
   DOM.exportMdBtn.addEventListener('click', copyMarkdown);
   DOM.shareUrlBtn.addEventListener('click', copyShareUrl);
+
+  // ── AI Toggle ──
+  DOM.aiToggleBtn.addEventListener('click', () => {
+    isAiMode = !isAiMode;
+    DOM.aiSettings.classList.toggle('hidden', !isAiMode);
+    DOM.aiToggleBtn.classList.toggle('btn-ai-active', isAiMode);
+    DOM.analyzeBtn.querySelector('.btn-text').textContent = isAiMode ? 'Analyze (AI)' : (isCompare ? 'Compare' : 'Analyze');
+  });
+  DOM.aiKeyToggle.addEventListener('click', () => {
+    aiKeyVisible = !aiKeyVisible;
+    DOM.aiKey.type = aiKeyVisible ? 'text' : 'password';
+    DOM.aiKeyToggle.textContent = aiKeyVisible ? 'Hide' : 'Show';
+  });
 
   // â”€â”€ Query param handling â”€â”€
   (function handleQueryParams() {

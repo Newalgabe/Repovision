@@ -132,6 +132,86 @@ app.post('/api/analyze', async (req, res) => {
   }
 });
 
+// ── AI Narrative ──
+app.post('/api/analyze-ai', async (req, res) => {
+  try {
+    const { url, apiKey, provider } = req.body;
+    if (!url) return res.status(400).json({ error: 'URL is required' });
+    if (!apiKey) return res.status(400).json({ error: 'API key is required' });
+    if (!provider || !['openai', 'claude'].includes(provider)) return res.status(400).json({ error: 'Provider must be openai or claude' });
+
+    const { owner, repo } = parseGitHubUrl(url);
+    const token = req.session?.githubToken;
+    if (token) setToken(token);
+    const data = await analyzeRepo(owner, repo, token);
+
+    const prompt = `You are an expert software architect. Analyze this GitHub repository and produce a clear, structured breakdown.
+
+Repository: ${data.repo.full_name}
+Description: ${data.repo.description || 'N/A'}
+Stars: ${data.repo.stars}
+Language: ${data.repo.language || 'N/A'}
+Project type: ${data.projectType}
+Frameworks: ${data.frameworks.map(f => f.name).join(', ') || 'none'}
+Architecture patterns: ${data.archPatterns?.map(a => a.name).join(', ') || 'none'}
+Total files: ${data.totalFiles}
+Total directories: ${data.totalDirs}
+
+Top languages:
+${data.languages?.slice(0, 5).map(l => `  ${l.ext}: ${l.count} files`).join('\n') || '  N/A'}
+
+Key dependencies:
+${data.frameworks?.map(f => `  ${f.name}: ${f.desc}`).join('\n') || '  N/A'}
+
+README features: ${data.readme?.features?.join(', ') || 'N/A'}
+
+File tree (top-level):
+${data.fileTree?.children?.slice(0, 15).map(c => `  ${c.type === 'dir' ? '📁' : '📄'} ${c.name}`).join('\n') || 'N/A'}
+
+Top files scanned:
+${data.deepScan?.slice(0, 5).map(f => `  ${f.path} (${f.lineCount} lines, ${f.importCount} imports)`).join('\n') || 'N/A'}
+
+Write a three-part narrative. Use plain Markdown but keep it concise:
+1. **What Is This?** (2-3 sentences about what this project does, its purpose)
+2. **What Does It Use?** (list key technologies and why they're used)
+3. **How Is It Organized?** (describe the architecture, how code is structured)
+
+Keep descriptions accurate and specific to this repo.`;
+
+    let aiNarrative = '';
+    if (provider === 'openai') {
+      const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1000, temperature: 0.5 }),
+      });
+      if (!openaiRes.ok) {
+        const err = await openaiRes.json().catch(() => ({}));
+        throw new Error(err.error?.message || `OpenAI API error: ${openaiRes.status}`);
+      }
+      const json = await openaiRes.json();
+      aiNarrative = json.choices?.[0]?.message?.content || '';
+    } else {
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({ model: 'claude-3-haiku-20240307', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] }),
+      });
+      if (!claudeRes.ok) {
+        const err = await claudeRes.json().catch(() => ({}));
+        throw new Error(err.error?.message || `Claude API error: ${claudeRes.status}`);
+      }
+      const json = await claudeRes.json();
+      aiNarrative = json.content?.[0]?.text || '';
+    }
+
+    res.json({ ...data, aiNarrative });
+  } catch (err) {
+    console.error('AI analysis error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/compare', async (req, res) => {
   try {
     const { url1, url2 } = req.body;

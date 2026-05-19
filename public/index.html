@@ -50,6 +50,7 @@
               <span class="toggle-track"><span class="toggle-knob"></span></span>
               <span class="toggle-text">Compare two repos</span>
             </label>
+            <button id="ai-toggle-btn" class="btn btn-sm btn-ai" title="AI-powered narrative">AI</button>
           </div>
 
           <div class="input-form">
@@ -65,6 +66,22 @@
               <span class="btn-text">Analyze</span>
               <span class="btn-spinner hidden"></span>
             </button>
+          </div>
+
+          <div id="ai-settings" class="ai-settings hidden">
+            <div class="ai-settings-header">
+              <span class="ai-settings-title">AI Narrative</span>
+              <span class="ai-settings-desc">Use your own API key for an AI-generated analysis</span>
+            </div>
+            <div class="ai-settings-row">
+              <select id="ai-provider" class="ai-select">
+                <option value="openai">OpenAI</option>
+                <option value="claude">Claude (Anthropic)</option>
+              </select>
+              <input type="password" id="ai-key" class="ai-key-input" placeholder="sk-..." autocomplete="off">
+              <button id="ai-key-toggle" class="btn btn-sm" title="Show/hide key">Show</button>
+            </div>
+            <p class="ai-settings-note">Your key is sent directly to the AI provider — never stored on our server.</p>
           </div>
 
           <div class="history" id="history-container"></div>
@@ -122,6 +139,16 @@
           </div>
 
           <div id="narrative-container"></div>
+
+          <div id="ai-narrative-container" class="hidden">
+            <div class="card ai-narrative-card">
+              <div class="card-header" id="ai-narrative-header">
+                <h3 class="card-title"><span class="card-icon">&#9670;</span> AI Narrative <span class="ai-badge">AI</span></h3>
+                <span class="card-chevron">&#9660;</span>
+              </div>
+              <div class="card-body summary-content" id="ai-narrative-body"></div>
+            </div>
+          </div>
 
           <!-- Deep Scan -->
           <div id="deep-scan-container" class="hidden"></div>
